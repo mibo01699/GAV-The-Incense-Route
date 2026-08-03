@@ -1,7 +1,7 @@
 {
   "name": "incense-route-hybrid-payment",
   "version": "1.0.0",
-  "description": "نظام الدفع الهجين لتطبيق طريق البخور على Pi Network (GAV-The-Incense-Route)",
+  "description": "نظام الدفع الهجين لتطبيق طريق البخور على Pi Network",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,14 +13,7 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": [
-    "pi-network",
-    "hybrid-payment",
-    "gcv",
-    "dex",
-    "blockchain",
-    "yemen"
-  ],
+  "keywords": ["pi-network", "hybrid-payment", "gcv", "dex", "blockchain", "yemen"],
   "author": "Mayass Ali",
   "license": "MIT"
 }
