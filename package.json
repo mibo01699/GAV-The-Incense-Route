@@ -1,0 +1,16 @@
+{
+  "name": "gav-the-incense-route",
+  "version": "9.4.0",
+  "description": "GAV Incense Route Hybrid Logistics Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
