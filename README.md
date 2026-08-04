@@ -13,4 +13,25 @@ To shelter vulnerable rural agricultural producers from volatile pricing structu
 ## 🏪 Integrated Hybrid Point-of-Sale (POS) Terminal
 The repository now includes `gav-pos-engine.js`, a production-ready Web3 retail engine operating under Protocol 23. It enables local Yemeni service nodes and coffee cooperatives to issue single-invoice checkouts split atomically between stable Pi GCV metrics and fluid YER tokens traded on the Pi DEX AMM.
 
+# GAV-The-Incense-Route: Web3 Logistics & Regional Trade via Pi Network
+
+This repository implements the decentralized logistics and supply chain framework for **"The Incense Route" (GAV)**, an economic model designed to revive regional trade and cross-border commercial corridors for Yemen using the Pi Network infrastructure.
+
+## 🌍 Abstract & Sovereign Trade Utility
+By leveraging Pi Network's decentralized ledger, this project bypasses standard banking gridlocks in conflict zones. It establishes transparent, immutable tracking for goods and services while enabling secure peer-to-peer and institutional settlement via the Pi SDK.
+
+## 🛠️ Architecture & Core Components
+- `incense_route_ledger.js`: A Node.js ledger system demonstrating the lifecycle of regional cargo tracking, integrated with automated payment escrow hooks via Pi Wallet.
+- **Supply Chain Cryptography**: Proof of delivery verification concepts tailored for small and medium enterprises (SMEs) in Yemen.
+
+## 🖥️ Getting Started
+To view or test the ledger engine pipeline, execute via Node.js environment:
+```bash
+node incense_route_ledger.js
+```
+
+## 📜 Compliance & Global Funding Focus
+Built strictly as a **Digital Public Good**, open for global deployment under the MIT standards, addressing institutional recovery goals set by UNICEF, Mercy Corps Ventures, and developmental funding entities.
+
+
 
