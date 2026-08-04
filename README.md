@@ -10,3 +10,7 @@ To shelter vulnerable rural agricultural producers from volatile pricing structu
 - **Atomic Escrow Releases:** Integrates with the `BIGISH-YER` contract ecosystem to release instant payments directly to the verified farmer's wallet immediately upon cryptographic proof of delivery, bypassing predatory intermediaries.
 - **MIT Digital Public Good:** Developed as a free, transparent public utility aligned directly with **UN SDG 9** (Industry, Innovation, and Infrastructure) and **SDG 12** (Responsible Consumption and Production).
 
+## 🏪 Integrated Hybrid Point-of-Sale (POS) Terminal
+The repository now includes `gav-pos-engine.js`, a production-ready Web3 retail engine operating under Protocol 23. It enables local Yemeni service nodes and coffee cooperatives to issue single-invoice checkouts split atomically between stable Pi GCV metrics and fluid YER tokens traded on the Pi DEX AMM.
+
+
