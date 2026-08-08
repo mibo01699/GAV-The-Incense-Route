@@ -73,3 +73,87 @@ app.listen(PORT, () => {
     console.log(`📊 قيمة GCV: ${HYBRID_CONFIG.GCV_VALUE_USD} دولار لكل Pi`);
     console.log(`💱 سعر صرف YER: ${HYBRID_CONFIG.YER_TO_USD_RATE} دولار لكل YER`);
 });
+
+
+// ============================================================
+// إضافة إلى GAV/server.js (التكامل مع نظام أكواد AJYAL)
+// ============================================================
+
+// عنوان خادم AJYAL (يجب تعيينه كمتغير بيئي)
+const AJYAL_API = process.env.AJYAL_API || 'http://localhost:3001/api';
+
+/**
+ * API: التحقق من صحة كود المساعدة (استدعاء AJYAL)
+ * POST /api/pos/verify-voucher
+ * Body: { "code": "ABCD1234...", "posId": "GABC..." }
+ */
+app.post('/api/pos/verify-voucher', async (req, res) => {
+    try {
+        const { code, posId } = req.body;
+        if (!code || !posId) {
+            return res.status(400).json({ error: 'الكود ومعرف نقطة البيع مطلوبان' });
+        }
+
+        // استدعاء واجهة AJYAL للتحقق
+        const response = await fetch(`${AJYAL_API}/voucher/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, redeemerPiId: posId })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            return res.status(400).json({ success: false, message: data.message });
+        }
+
+        res.json({
+            success: true,
+            voucher: data.voucher,
+            message: 'الكود صالح للصرف'
+        });
+
+    } catch (error) {
+        console.error('خطأ في التحقق من الكود:', error);
+        res.status(500).json({ error: 'فشل في التحقق من الكود' });
+    }
+});
+
+/**
+ * API: صرف الكود (استبدال السلع)
+ * POST /api/pos/redeem-voucher
+ * Body: { "code": "ABCD1234...", "posId": "GABC..." }
+ */
+app.post('/api/pos/redeem-voucher', async (req, res) => {
+    try {
+        const { code, posId } = req.body;
+        if (!code || !posId) {
+            return res.status(400).json({ error: 'الكود ومعرف نقطة البيع مطلوبان' });
+        }
+
+        // استدعاء واجهة AJYAL لصرف الكود
+        const response = await fetch(`${AJYAL_API}/voucher/redeem`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, redeemerPiId: posId })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            return res.status(400).json({ success: false, message: data.message });
+        }
+
+        // هنا يمكن إضافة منطق لتسجيل عملية الصرف محلياً في GAV
+        console.log(`✅ تم صرف الكود ${code} في نقطة البيع ${posId}`);
+
+        res.json({
+            success: true,
+            message: data.message,
+            voucher: data.voucher
+        });
+
+    } catch (error) {
+        console.error('خطأ في صرف الكود:', error);
+        res.status(500).json({ error: 'فشل في صرف الكود' });
+    }
+});
+
