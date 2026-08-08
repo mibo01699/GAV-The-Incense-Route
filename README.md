@@ -33,26 +33,22 @@ node incense_route_ledger.js
 ## 📜 Compliance & Global Funding Focus
 Built strictly as a **Digital Public Good**, open for global deployment under the MIT standards, addressing institutional recovery goals set by UNICEF, Mercy Corps Ventures, and developmental funding entities.
 
-## 🧩 نظام إدارة المساعدات العينية (Voucher System)
+## 🏪 نقاط البيع وصرف المساعدات (POS Integration)
 
-AJYAL يتضمن نظاماً متكاملاً لإدارة الأكواد المشفرة للمساعدات العينية، مخصص حصراً لـ **ذوي الاحتياجات الخاصة والمعاقين خَلقياً**.
+يدعم GAV صرف المساعدات العينية (السلات الغذائية) لذوي الاحتياجات الخاصة من خلال التكامل مع نظام الأكواد في AJYAL.
 
 ### الميزات الرئيسية:
-- **توليد أكواد مشفرة:** لكل مستفيد ولكل سلة غذائية.
-- **التحقق من الصلاحية:** التأكد من عدم انتهاء صلاحية الكود أو استخدامه مسبقاً.
-- **صرف السلع:** استبدال الكود بالسلع في نقاط البيع (عبر تطبيق GAV).
-- **التكامل مع BIGISH-YER:** تسوية مستحقات نقاط البيع مالياً.
+- **التحقق من الكود:** استدعاء واجهة AJYAL للتحقق من صحة الكود قبل الصرف.
+- **صرف السلع:** تأكيد عملية الصرف وتسجيلها في نظام المقاصة.
+- **واجهة مستخدم بسيطة:** نموذج سهل لموظفي نقاط البيع.
 
-### واجهات برمجة التطبيقات (APIs) الرئيسية:
-- `POST /api/voucher/generate` – إصدار كود جديد.
-- `POST /api/voucher/verify` – التحقق من صحة الكود.
-- `POST /api/voucher/redeem` – صرف الكود (استبداله بسلع).
-- `GET /api/voucher/list/:piUserId` – قائمة أكواد مستفيد.
-- `GET /api/voucher/stats` – إحصائيات الأكواد.
+### واجهات برمجة التطبيقات (APIs) المستخدمة:
+- `POST /api/pos/verify-voucher` – التحقق من الكود (ينادي AJYAL).
+- `POST /api/pos/redeem-voucher` – صرف الكود (ينادي AJYAL).
 
 ### الربط مع التطبيقات الأخرى:
-- **GAV:** يستخدم واجهات `/api/voucher/verify` و `/api/voucher/redeem` لصرف السلع.
-- **BIGISH-YER:** يستخدم نظام المقاصة (`clearing-system.js`) لتسوية المدفوعات.
+- **AJYAL:** المصدر الرئيسي للأكواد والتحقق.
+- **BIGISH-YER:** يستقبل طلبات الدفع لتسوية المستحقات (عبر نظام المقاصة).
 
 
 
