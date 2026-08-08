@@ -69,3 +69,149 @@
     </script>
 </body>
 </html>
+
+<!-- ============================================================ -->
+<!-- قسم صرف الأكواد (لنقاط البيع) -->
+<!-- ============================================================ -->
+<div class="container mt-5">
+    <h2><i class="fas fa-barcode"></i> صرف المساعدات العينية</h2>
+    <p>أدخل الكود المشفر الخاص بالمستفيد لتأكيد صرف السلع.</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">التحقق من الكود</h5>
+                    <form id="voucher-form">
+                        <div class="mb-3">
+                            <label for="voucher-code" class="form-label">الكود المشفر</label>
+                            <input type="text" class="form-control" id="voucher-code" placeholder="أدخل الكود (مثال: A1B2C3D4...)" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="pos-id" class="form-label">معرف نقطة البيع</label>
+                            <input type="text" class="form-control" id="pos-id" placeholder="معرف نقطة البيع (من Pi Auth)" required>
+                        </div>
+                        <button type="submit" class="btn btn-success" id="redeem-btn">
+                            <i class="fas fa-check-circle"></i> صرف السلع
+                        </button>
+                        <button type="button" class="btn btn-info" id="verify-btn">
+                            <i class="fas fa-search"></i> تحقق فقط
+                        </button>
+                    </form>
+                    <div id="voucher-result" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('voucher-form');
+        const codeInput = document.getElementById('voucher-code');
+        const posIdInput = document.getElementById('pos-id');
+        const resultDiv = document.getElementById('voucher-result');
+
+        // دالة لعرض النتائج
+        function showResult(message, isSuccess = true) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-${isSuccess ? 'success' : 'danger'}">
+                    ${message}
+                </div>
+            `;
+        }
+
+        // دالة للتحقق من الكود
+        async function verifyVoucher(code, posId) {
+            try {
+                const response = await fetch('/api/pos/verify-voucher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, posId })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('خطأ في التحقق:', error);
+                return { success: false, message: 'خطأ في الاتصال بالخادم' };
+            }
+        }
+
+        // دالة لصرف الكود
+        async function redeemVoucher(code, posId) {
+            try {
+                const response = await fetch('/api/pos/redeem-voucher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, posId })
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('خطأ في الصرف:', error);
+                return { success: false, message: 'خطأ في الاتصال بالخادم' };
+            }
+        }
+
+        // حدث النقر على زر "تحقق فقط"
+        document.getElementById('verify-btn').addEventListener('click', async function() {
+            const code = codeInput.value.trim();
+            const posId = posIdInput.value.trim();
+
+            if (!code || !posId) {
+                showResult('الرجاء إدخال الكود ومعرف نقطة البيع', false);
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="alert alert-info">جاري التحقق...</div>';
+            const result = await verifyVoucher(code, posId);
+
+            if (result.success) {
+                let itemsList = result.voucher.items.map(item =>
+                    `${item.name} (${item.quantity} ${item.unit || ''})`
+                ).join(', ');
+                showResult(`
+                    ✅ الكود صالح<br>
+                    <strong>المستفيد:</strong> ${result.voucher.beneficiaryName}<br>
+                    <strong>السلع:</strong> ${itemsList}<br>
+                    <strong>القيمة:</strong> ${result.voucher.value} YER
+                `, true);
+            } else {
+                showResult(`❌ ${result.message}`, false);
+            }
+        });
+
+        // حدث تقديم النموذج (صرف الكود)
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const code = codeInput.value.trim();
+            const posId = posIdInput.value.trim();
+
+            if (!code || !posId) {
+                showResult('الرجاء إدخال الكود ومعرف نقطة البيع', false);
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="alert alert-info">جاري صرف السلع...</div>';
+            const result = await redeemVoucher(code, posId);
+
+            if (result.success) {
+                let itemsList = result.voucher.items.map(item =>
+                    `${item.name} (${item.quantity} ${item.unit || ''})`
+                ).join(', ');
+                showResult(`
+                    ✅ تم صرف السلع بنجاح!<br>
+                    <strong>المستفيد:</strong> ${result.voucher.beneficiaryName}<br>
+                    <strong>السلع:</strong> ${itemsList}<br>
+                    <strong>القيمة:</strong> ${result.voucher.value} YER
+                `, true);
+                // إعادة تعيين الحقول
+                codeInput.value = '';
+                posIdInput.value = '';
+            } else {
+                showResult(`❌ ${result.message}`, false);
+            }
+        });
+    });
+</script>
+
+
