@@ -1,32 +1,27 @@
 // ============================================================
 // الملف: payment-processor.js
-// المسار: GAV-The-Incense-Route/services/payment-processor.js
-// الدور: تنفيذ عملية الدفع الهجين بالكامل (Pi + YER) مع التكامل مع المحافظ و DEX
+// المسار: GAV-The-Incense-Route/payment-processor.js
+// الدور: تنفيذ الدفع الهجين مع تكامل حقيقي مع BIGISH-YER
 // ============================================================
 
-const HybridPaymentCalculator = require('../utils/payment-calculator');
-const { HYBRID_CONFIG } = require('../config/hybrid-payment-config');
+const HybridPaymentCalculator = require('./payment-calculator');
+const { HYBRID_CONFIG } = require('./hybrid-payment-config');
+
+// عنوان خادم BIGISH-YER (يجب تعيينه كمتغير بيئي)
+const BIGISH_YER_API = process.env.BIGISH_YER_API || 'http://localhost:5001/api';
 
 class HybridPaymentProcessor {
     constructor() {
         this.calculator = new HybridPaymentCalculator();
     }
 
-    /**
-     * تنفيذ عملية الدفع الهجين بالكامل
-     * @param {Object} paymentRequest - بيانات طلب الدفع
-     * @param {number} paymentRequest.productPriceUSD - سعر المنتج
-     * @param {string} paymentRequest.buyerPiWallet - عنوان محفظة Pi للمشتري
-     * @param {string} paymentRequest.buyerYerWallet - عنوان محفظة YER للمشتري
-     * @param {number} paymentRequest.piPercent - النسبة المئوية للدفع بـ Pi (اختياري)
-     * @param {number} paymentRequest.yerPercent - النسبة المئوية للدفع بـ YER (اختياري)
-     * @returns {Object} نتيجة عملية الدفع
-     */
     async processHybridPayment(paymentRequest) {
         const {
             productPriceUSD,
             buyerPiWallet,
-            buyerYerWallet,
+            buyerYerWalletId,  // معرف محفظة YER للمشتري (من BIGISH-YER)
+            sellerPiWallet,
+            sellerYerWalletId, // معرف محفظة YER للبائع (من BIGISH-YER)
             piPercent,
             yerPercent
         } = paymentRequest;
@@ -41,29 +36,30 @@ class HybridPaymentProcessor {
 
             console.log('📊 تفاصيل الدفع المحسوبة:', paymentDetails);
 
-            // 2. تنفيذ دفعة Pi عبر محفظة Pi (هنا يتم استدعاء Pi SDK الفعلي)
+            // 2. تنفيذ دفعة Pi (سيتم استبدالها بتكامل Pi SDK الحقيقي)
             const piPaymentResult = await this.executePiPayment(
                 buyerPiWallet,
-                paymentDetails.piAmount.pi,
-                'محفظة البائع على Pi'
+                sellerPiWallet,
+                paymentDetails.piAmount.pi
             );
 
             if (!piPaymentResult.success) {
                 throw new Error(`فشل دفع Pi: ${piPaymentResult.message}`);
             }
 
-            // 3. تنفيذ دفعة YER عبر محفظة BIGISH-YER (هنا يتم استدعاء API المحفظة)
-            const yerPaymentResult = await this.executeYerPayment(
-                buyerYerWallet,
+            // 3. تنفيذ دفعة YER عبر BIGISH-YER (التكامل الحقيقي)
+            const yerPaymentResult = await this.executeYerPaymentViaAPI(
+                buyerYerWalletId,
+                sellerYerWalletId,
                 paymentDetails.yerAmount.yer,
-                'محفظة البائع على YER'
+                `دفعة للمزاد/الفاتورة (GCV: ${HYBRID_CONFIG.GCV_VALUE_USD})`
             );
 
             if (!yerPaymentResult.success) {
-                throw new Error(`فشل دفع YER: ${yerPaymentResult.message}`);
+                throw new Error(`فشل دفع YER: ${yerPaymentResult.error}`);
             }
 
-            // 4. إيداع جزء من Pi في مجمع السيولة على Pi DEX (هنا يتم استدعاء واجهة DEX)
+            // 4. إضافة السيولة (محاكاة - سيتم استبدالها بتكامل DEX)
             const liquidityResult = await this.addToLiquidityPool(
                 paymentDetails.piAmount.pi,
                 paymentDetails.yerAmount.yer,
@@ -74,7 +70,6 @@ class HybridPaymentProcessor {
                 console.warn('⚠️ تحذير: فشل إضافة السيولة إلى DEX، ولكن تمت المعاملة بنجاح');
             }
 
-            // 5. إرجاع نتيجة العملية
             return {
                 success: true,
                 paymentDetails,
@@ -94,36 +89,59 @@ class HybridPaymentProcessor {
         }
     }
 
-    /**
-     * تنفيذ دفعة Pi (محاكاة - يجب استبدالها باستدعاء Pi SDK الفعلي)
-     */
-    async executePiPayment(fromWallet, amount, toWallet) {
-        console.log(`💳 دفع ${amount} Pi من ${fromWallet} إلى ${toWallet}`);
-        // TODO: استبدال بوظيفة Pi SDK الفعلية
+    // ============================================================
+    // دالة تنفيذ تحويل YER عبر API (التكامل الحقيقي)
+    // ============================================================
+    async executeYerPaymentViaAPI(fromWalletId, toWalletId, amount, description) {
+        try {
+            console.log(`💳 طلب تحويل YER: ${amount} من ${fromWalletId} إلى ${toWalletId}`);
+
+            const response = await fetch(`${BIGISH_YER_API}/yer/transfer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fromWalletId,
+                    toWalletId,
+                    amount,
+                    description
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || 'فشل تحويل YER');
+            }
+
+            console.log('✅ تم تحويل YER بنجاح:', data.transaction);
+            return {
+                success: true,
+                transaction: data.transaction,
+                fromBalance: data.fromBalance,
+                toBalance: data.toBalance
+            };
+        } catch (error) {
+            console.error('❌ خطأ في تحويل YER عبر API:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    // ============================================================
+    // دوال المحاكاة (سيتم استبدالها بتكامل حقيقي لاحقاً)
+    // ============================================================
+    async executePiPayment(fromWallet, toWallet, amount) {
+        console.log(`💳 دفع ${amount} Pi من ${fromWallet} إلى ${toWallet} (محاكاة)`);
         return { success: true, transactionId: 'pi_tx_' + Date.now() };
     }
 
-    /**
-     * تنفيذ دفعة YER عبر محفظة BIGISH-YER (محاكاة - يجب استبدالها باستدعاء API الفعلي)
-     */
-    async executeYerPayment(fromWallet, amount, toWallet) {
-        console.log(`💳 دفع ${amount} YER من ${fromWallet} إلى ${toWallet}`);
-        // TODO: استبدال بوظيفة API محفظة BIGISH-YER الفعلية
-        return { success: true, transactionId: 'yer_tx_' + Date.now() };
-    }
-
-    /**
-     * إضافة السيولة إلى مجمعات DEX (محاكاة - يجب استبدالها باستدعاء واجهة DEX الفعلية)
-     */
     async addToLiquidityPool(piAmount, yerAmount, pools) {
-        console.log(`💧 إضافة ${piAmount} Pi و ${yerAmount} YER إلى مجمعات السيولة`);
-        // TODO: استبدال بوظيفة Pi DEX الفعلية لإضافة السيولة
+        console.log(`💧 إضافة ${piAmount} Pi و ${yerAmount} YER إلى مجمعات السيولة (محاكاة)`);
         return { success: true, poolId: 'pool_' + Date.now() };
     }
 
-    /**
-     * تحديث نسب الدفع للبائع
-     */
     updateSellerRatios(newPiPercent, newYerPercent) {
         this.calculator.updateSellerRatios(newPiPercent, newYerPercent);
     }
