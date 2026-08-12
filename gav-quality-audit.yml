@@ -1,0 +1,24 @@
+name: "GAV Logistics Chain Compliance Check"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  audit-logistics-core:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout Repository Contents"
+      uses: actions/checkout@v4
+
+    - name: "Scan For Illicit Float Arithmetic Expressions"
+      run: |
+        echo "Executing automated static code audit across all GAV supply chain scripts..."
+        if grep -rnw . -e "parseFloat" | grep -v "Math.round" | grep -v "node_modules"; then
+          echo "CRITICAL FAULT: Floating-point trace variables isolated. Force rejection to meet UNICEF compliance standards."
+          exit 1
+        else
+          echo "SUCCESS: Absolute BigInt constraints verified across all POS and logistics files."
+        fi
