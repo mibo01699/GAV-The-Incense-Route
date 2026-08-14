@@ -1,78 +1,39 @@
-// ============================================================
-// الملف: payment-calculator.js
-// المسار: GAV-The-Incense-Route/utils/payment-calculator.js
-// الدور: حساب قيم الدفع الهجين (Pi/YER) بناءً على سعر المنتج والنسب
-// ============================================================
+// payment-calculator.js - النسخة المحدثة لمرونة نقاط البيع والتعاقدات الزراعية
 
-const { HYBRID_CONFIG } = require('../config/hybrid-payment-config');
-
-class HybridPaymentCalculator {
-    constructor(config = HYBRID_CONFIG) {
-        this.config = config;
-    }
-
+class GavPaymentCalculator {
     /**
-     * حساب تفاصيل الدفع الهجين
-     * @param {number} productPriceUSD - سعر المنتج بالدولار
-     * @param {number} piPercent - النسبة المئوية للدفع بـ Pi (0-100)
-     * @param {number} yerPercent - النسبة المئوية للدفع بـ YER (0-100)
-     * @returns {Object} تفاصيل الدفع
+     * احتساب فاتورة نقطة البيع أو عقد الضمان الزراعي بنسبة توافقية
+     * @param {BigInt} invoiceTotalInYCOIN - الإجمالي الكلي للفاتورة بالوحدات الصغرى للعملة المحلية
+     * @param {BigInt} customGcvRateInYCOIN - سعر عملة Pi المتوافق عليه في العقد/الصفقة بناءً على GCV
+     * @param {number} agreedPiPercentage - النسبة المئوية المخصصة للدفع بـ Pi من قِبل الطرفين (0 - 100)
      */
-    calculatePaymentSplit(productPriceUSD, piPercent = null, yerPercent = null) {
-        // استخدام النسب الافتراضية إذا لم يتم تحديدها
-        const piRatio = (piPercent !== null) ? piPercent : this.config.DEFAULT_PI_PERCENT;
-        const yerRatio = (yerPercent !== null) ? yerPercent : this.config.DEFAULT_YER_PERCENT;
-
-        // التأكد من أن مجموع النسب 100%
-        if (piRatio + yerRatio !== 100) {
-            throw new Error(`مجموع النسب يجب أن يساوي 100% (الحالي: ${piRatio + yerRatio}%)`);
+    static calculateSplitInvoice(invoiceTotalInYCOIN, customGcvRateInYCOIN, agreedPiPercentage) {
+        if (agreedPiPercentage < 0 || agreedPiPercentage > 100) {
+            throw new Error("Percentage must be between 0 and 100");
         }
 
-        // حساب القيم بالدولار
-        const piAmountUSD = (productPriceUSD * piRatio) / 100;
-        const yerAmountUSD = (productPriceUSD * yerRatio) / 100;
+        const percentageBigInt = BigInt(agreedPiPercentage);
+        const hundredBigInt = 100n;
 
-        // تحويل قيم Pi إلى عملة Pi بناءً على GCV
-        const piAmountPi = piAmountUSD / this.config.GCV_VALUE_USD;
+        // حساب حصة العملة المحلية المستقرة وحصة الـ Pi بناءً على النسبة التوافقية الحرة
+        const yerInvoiceShare = (invoiceTotalInYCOIN * (hundredBigInt - percentageBigInt)) / hundredBigInt;
+        const piInvoiceShare = invoiceTotalInYCOIN - yerInvoiceShare; // منع معالجة الكسور المفقودة
 
-        // تحويل قيم YER إلى عملة YER بناءً على سعر الصرف
-        const yerAmountYER = yerAmountUSD / this.config.YER_TO_USD_RATE;
+        const piStroopsPrecision = 10000000n; // دقة الـ Pi البالغة 7 أصفار (Stroops)
+        let finalPiRequiredInStroops = 0n;
+
+        if (piInvoiceShare > 0n && customGcvRateInYCOIN > 0n) {
+            finalPiRequiredInStroops = (piInvoiceShare * piStroopsPrecision) / customGcvRateInYCOIN;
+        }
 
         return {
-            productPriceUSD,
-            piPercent: piRatio,
-            yerPercent: yerRatio,
-            piAmount: {
-                usd: piAmountUSD,
-                pi: piAmountPi,
-                formatted: `${piAmountPi.toFixed(6)} Pi`
-            },
-            yerAmount: {
-                usd: yerAmountUSD,
-                yer: yerAmountYER,
-                formatted: `${yerAmountYER.toFixed(2)} YER`
-            },
-            total: {
-                usd: productPriceUSD,
-                piValueUSD: piAmountUSD,
-                yerValueUSD: yerAmountUSD
-            }
+            status: "CALCULATED",
+            piPercentage: agreedPiPercentage,
+            yerPercentage: 100 - agreedPiPercentage,
+            yerAmountToPay: yerInvoiceShare.toString(),
+            piAmountToPayInStroops: finalPiRequiredInStroops.toString()
         };
-    }
-
-    /**
-     * تحديث النسب بناءً على إعدادات البائع
-     * @param {number} newPiPercent - النسبة الجديدة للدفع بـ Pi
-     * @param {number} newYerPercent - النسبة الجديدة للدفع بـ YER
-     */
-    updateSellerRatios(newPiPercent, newYerPercent) {
-        if (newPiPercent + newYerPercent !== 100) {
-            throw new Error('مجموع النسب يجب أن يساوي 100%');
-        }
-        this.config.DEFAULT_PI_PERCENT = newPiPercent;
-        this.config.DEFAULT_YER_PERCENT = newYerPercent;
-        console.log(`تم تحديث النسب: Pi=${newPiPercent}%, YER=${newYerPercent}%`);
     }
 }
 
-module.exports = HybridPaymentCalculator;
+module.exports = GavPaymentCalculator;
