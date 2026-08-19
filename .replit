@@ -1,14 +1,5 @@
-# ملف تكوين البناء والتشغيل التلقائي الدائم للنود اللوجستي
-modules = ["nodejs-20", "typescript"]
-run = "npm install && npm start"
+run = "node app.js"
+entrypoint = "app.js"
 
-[deployment]
-run = "npm start"
-entrypoint = "index.ts"
-
-[nix]
-channel = "stable-23_11"
-
-[ports]
-public = true
-localPort = 4000
+[packager]
+language = "nodejs"
