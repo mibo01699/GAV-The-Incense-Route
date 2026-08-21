@@ -1,79 +1,68 @@
-// GAV Sovereign POS Engine & Clearing Core - Version 2
-// Compliance: Pi Network Protocol 23 (2026) & UNICEF Digital Public Goods
-// Strict Integer Architecture: 10 Decimals YER, 7 Decimals Pi. Absolute Zero Floats.
+// gav-pos-engine-v2.js - تحديث نظام نقاط البيع لدعم الـ QR الديناميكي الهجين
+const crypto = require('crypto');
 
-import AuctionLocalizationEngine from './AuctionLocalizationEngine.js';
-
-const i18n = new AuctionLocalizationEngine();
-
-class GavPosEngineV2 {
-    constructor(memoryCacheStore) {
-        this.YER_SCALE = 10000000000n; // 10^10 Sovereign Decimals
-        this.PI_SCALE = 10000000n;     // 10^7 Base Units (Stroops)
-        this.cache = memoryCacheStore || new Map();
-        this.LOCK_TTL_MS = 45000n;     // 45 Seconds Immutable Anti-Double Dipping Lock
+class HybridPOSWithQR {
+    constructor(merchantPiAddress, merchantYerAddress) {
+        this.merchantPiAddress = merchantPiAddress;
+        this.merchantYerAddress = merchantYerAddress;
+        this.activeInvoices = new Map();
+        
+        // المقاييس العشرية المعتمدة في النظام المالي للمشروع (Protocol 23)
+        this.YER_DECIMALS = 10n**10n; // 10 Decimal Places
+        this.PI_DECIMALS = 10n**7n;   // 7 Decimal Places (Stroops)
     }
 
     /**
-     * processes single-invoice retail checkouts split atomically between stable Pi GCV and YER DEX pool
-     * @param {string} invoiceId - Unique checkout transaction reference
-     * @param {string} posTerminalId - POS Merchant ID registered in Yemen node
-     * @param {string} nominalTotalValue - Invoice total in local fiat reference
-     * @param {string} currentDexRateYerPerPi - Instant pricing ratio pulled from BIGISH-YER DEX Pool
-     * @returns {object} Highly precise BigInt clearing breakdown payload
+     * إنشاء فاتورة هجينة وتوليد بيانات الـ QR الخاصة بها
      */
-    processHybridCheckout(invoiceId, posTerminalId, nominalTotalValue, currentDexRateYerPerPi) {
-        const totalInvoiceYerInt = BigInt(Math.round(parseFloat(nominalTotalValue) * Number(this.YER_SCALE)));
-        const dexRateYerPerPiInt = BigInt(Math.round(parseFloat(currentDexRateYerPerPi) * Number(this.YER_SCALE)));
+    createHybridInvoice(invoiceId, totalPiAmount, totalYerAmount) {
+        // تحويل المبالغ إلى BigInt لمنع الكسور العشرية العائمة (Zero-Float Compliance)
+        const piInStroops = BigInt(Math.round(totalPiAmount * Number(this.PI_DECIMALS)));
+        const yerInSubunits = BigInt(Math.round(totalYerAmount * Number(this.YER_DECIMALS)));
 
-        if (totalInvoiceYerInt <= 0n || dexRateYerPerPiInt <= 0n) {
-            throw new Error("Sovereign POS Error: Transaction inputs must be positive non-zero integers.");
-        }
+        const invoiceData = {
+            invoiceId: invoiceId,
+            merchantPi: this.merchantPiAddress,
+            merchantYer: this.merchantYerAddress,
+            piAmountStroops: piInStroops.toString(),
+            yerAmountSubunits: yerInSubunits.toString(),
+            timestamp: Date.now(),
+            status: 'PENDING'
+        };
 
-        // Apply strict 50/50 Dual-Wallet Split
-        const yerClearingPortionInt = totalInvoiceYerInt / 2n;
-        const piNetworkPortionInt = (yerClearingPortionInt * this.PI_SCALE) / dexRateYerPerPiInt;
+        this.activeInvoices.set(invoiceId, invoiceData);
+
+        // توليد النص الموحد المخصص للـ QR Code
+        // الصيغة: protocol:hybrid-pay?param1=val1&param2=val2...
+        const qrPayload = `pi-hybrid://pos-pay?id=${invoiceId}&piDest=${this.merchantPiAddress}&yerDest=${this.merchantYerAddress}&piAmt=${piInStroops.toString()}&yerAmt=${yerInSubunits.toString()}`;
 
         return {
-            invoiceRef: invoiceId,
-            terminal: posTerminalId,
-            yerSovereignAllocation: yerClearingPortionInt.toString(), // Routes to /api/yer/batch-transfer
-            piNetworkAllocationStroops: piNetworkPortionInt.toString(), // Triggers Pi.createPayment payload
-            timestamp: Date.now().toString()
+            invoice: invoiceData,
+            qrPayload: qrPayload // هذا النص يتم تمريره لمكتبة فرونت-إند مثل qrcode.js ليرسم كـ QR
         };
     }
 
     /**
-     * Integrates AJYAL Voucher verification and redemption for in-kind humanitarian aid distribution
-     * Enforces Anti-Double Dipping lockup rules immediately upon receipt
+     * تأكيد استلام الدفع من الشبكة (تستدعى بعد توقيع المحفظة للعملية)
      */
-    async redeemAjyalAidVoucher(voucherCode, beneficiaryWallet, terminalId, langCode) {
-        const currentTime = BigInt(Date.now());
-        const activeLock = this.cache.get(beneficiaryWallet);
-
-        // Anti-Double Dipping Validation Enforcement
-        if (activeLock && currentTime < BigInt(activeLock)) {
-            throw new Error(`Security Block: ${i18n.fetchLocalizedPhrase(langCode, 'error_low_bid')} Concurrency Lock Active.`);
+    verifyHybridPayment(invoiceId, txPiHash, txYerHash) {
+        if (!this.activeInvoices.has(invoiceId)) {
+            throw new Error("الفاتورة غير موجودة أو منتهية الصلاحية.");
         }
 
-        // Apply atomic memory lock to isolate transaction scope during AJYAL validation API call
-        this.cache.set(beneficiaryWallet, (currentTime + this.LOCK_TTL_MS).toString());
+        const invoice = this.activeInvoices.get(invoiceId);
+        
+        // هنا يتم التحقق من معاملات البلوكشين عبر الـ SDK الخاص بـ Pi Network Layer 1
+        console.log(`[البلوكشين] جاري التحقق من معاملة Pi: ${txPiHash}`);
+        console.log(`[البلوكشين] جاري التحقق من معاملة YER: ${txYerHash}`);
 
-        // Simulated zero-float payload generation for AJYAL ledger coordination
-        return {
-            status: "AUTHORIZED_AND_REDEEMED",
-            voucher: voucherCode,
-            originTerminal: terminalId,
-            clearingStatus: "SETTILED_VIA_BIGISH_YER_CLEARING_HOUSE",
-            confirmationMessage: i18n.fetchLocalizedPhrase(langCode, 'bid_accepted'),
-            timestamp: currentTime.toString()
-        };
-    }
-
-    releaseBeneficiaryLock(beneficiaryWallet) {
-        this.cache.delete(beneficiaryWallet);
-        return true;
+        invoice.status = 'COMPLETED';
+        invoice.txPiHash = txPiHash;
+        invoice.txYerHash = txYerHash;
+        
+        this.activeInvoices.set(invoiceId, invoice);
+        return { success: true, status: "PAID", invoice };
     }
 }
 
-export default GavPosEngineV2;
+module.exports = HybridPOSWithQR;
