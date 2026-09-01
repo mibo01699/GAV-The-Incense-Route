@@ -14,3 +14,7 @@ jobs:
         echo "=== فحص تكامل خطوط الإمداد والتجارة اللامركزية ==="
         echo "[SUCCESS] تم التحقق من ربط بوابات الدفع وقالب Pi SDK."
         echo "[SUCCESS] الربط الأمني مع COBRA-Protocol نشط ومؤمن بنسبة 100%."
+- name: Setup Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: '22.x'  # أو '24.x'
