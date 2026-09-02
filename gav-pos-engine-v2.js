@@ -1,68 +1,29 @@
-// gav-pos-engine-v2.js - تحديث نظام نقاط البيع لدعم الـ QR الديناميكي الهجين
-const crypto = require('crypto');
+// gav-pos-engine-v2.js - محرك نقاط البيع الهجين
+// يستخدم BigInt حصرياً للعمليات المالية
 
-class HybridPOSWithQR {
-    constructor(merchantPiAddress, merchantYerAddress) {
-        this.merchantPiAddress = merchantPiAddress;
-        this.merchantYerAddress = merchantYerAddress;
-        this.activeInvoices = new Map();
-        
-        // المقاييس العشرية المعتمدة في النظام المالي للمشروع (Protocol 23)
-        this.YER_DECIMALS = 10n**10n; // 10 Decimal Places
-        this.PI_DECIMALS = 10n**7n;   // 7 Decimal Places (Stroops)
+const { HYBRID_CONFIG } = require('./hybrid-payment-config');
+
+class GavPOSEngine {
+    constructor() {
+        this.gcvValue = BigInt(HYBRID_CONFIG.GCV_VALUE_USD * 100); // تحويل إلى سنتات
+        this.yerToUsdRate = BigInt(HYBRID_CONFIG.YER_TO_USD_RATE * 100);
     }
 
-    /**
-     * إنشاء فاتورة هجينة وتوليد بيانات الـ QR الخاصة بها
-     */
-    createHybridInvoice(invoiceId, totalPiAmount, totalYerAmount) {
-        // تحويل المبالغ إلى BigInt لمنع الكسور العشرية العائمة (Zero-Float Compliance)
-        const piInStroops = BigInt(Math.round(totalPiAmount * Number(this.PI_DECIMALS)));
-        const yerInSubunits = BigInt(Math.round(totalYerAmount * Number(this.YER_DECIMALS)));
+    calculateSplit(productPriceUSD, piPercent, yerPercent) {
+        // تحويل المبلغ إلى BigInt (باستخدام سنتات)
+        const priceInCents = BigInt(Math.round(productPriceUSD * 100));
+        const piRatio = BigInt(piPercent);
+        const yerRatio = BigInt(yerPercent);
 
-        const invoiceData = {
-            invoiceId: invoiceId,
-            merchantPi: this.merchantPiAddress,
-            merchantYer: this.merchantYerAddress,
-            piAmountStroops: piInStroops.toString(),
-            yerAmountSubunits: yerInSubunits.toString(),
-            timestamp: Date.now(),
-            status: 'PENDING'
-        };
-
-        this.activeInvoices.set(invoiceId, invoiceData);
-
-        // توليد النص الموحد المخصص للـ QR Code
-        // الصيغة: protocol:hybrid-pay?param1=val1&param2=val2...
-        const qrPayload = `pi-hybrid://pos-pay?id=${invoiceId}&piDest=${this.merchantPiAddress}&yerDest=${this.merchantYerAddress}&piAmt=${piInStroops.toString()}&yerAmt=${yerInSubunits.toString()}`;
+        const piAmount = (priceInCents * piRatio) / 100n;
+        const yerAmount = (priceInCents * yerRatio) / 100n;
 
         return {
-            invoice: invoiceData,
-            qrPayload: qrPayload // هذا النص يتم تمريره لمكتبة فرونت-إند مثل qrcode.js ليرسم كـ QR
+            piAmount: piAmount.toString(),
+            yerAmount: yerAmount.toString(),
+            precision: 'BIGINT_COMPLIANT'
         };
-    }
-
-    /**
-     * تأكيد استلام الدفع من الشبكة (تستدعى بعد توقيع المحفظة للعملية)
-     */
-    verifyHybridPayment(invoiceId, txPiHash, txYerHash) {
-        if (!this.activeInvoices.has(invoiceId)) {
-            throw new Error("الفاتورة غير موجودة أو منتهية الصلاحية.");
-        }
-
-        const invoice = this.activeInvoices.get(invoiceId);
-        
-        // هنا يتم التحقق من معاملات البلوكشين عبر الـ SDK الخاص بـ Pi Network Layer 1
-        console.log(`[البلوكشين] جاري التحقق من معاملة Pi: ${txPiHash}`);
-        console.log(`[البلوكشين] جاري التحقق من معاملة YER: ${txYerHash}`);
-
-        invoice.status = 'COMPLETED';
-        invoice.txPiHash = txPiHash;
-        invoice.txYerHash = txYerHash;
-        
-        this.activeInvoices.set(invoiceId, invoice);
-        return { success: true, status: "PAID", invoice };
     }
 }
 
-module.exports = HybridPOSWithQR;
+module.exports = GavPOSEngine;
