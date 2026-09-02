@@ -1,24 +1,28 @@
 // ============================================================
-// الملف: server.js
-// المسار: GAV-The-Incense-Route/server.js
-// الدور: نقطة الدخول الرئيسية الموحدة لتطبيق "طريق البخور"
-// يوفر واجهات API للدفع الهجين والتكامل مع AJYAL
-// تم التحديث: دمج مسار pricing-poll، إضافة BigInt، إزالة ادعاءات UNICEF
+// الملف: server.js (متوافق مع Vercel Serverless)
+// الدور: نقطة الدخول الرئيسية لتطبيق "طريق البخور"
+// تم التحديث: إزالة app.listen()، تصدير التطبيق كدالة
 // ============================================================
 
 const express = require('express');
 const cors = require('cors');
+
+// Import configurations and processors
 const HybridPaymentProcessor = require('./services/payment-processor');
 const { HYBRID_CONFIG } = require('./config/hybrid-payment-config');
 
 const app = express();
 const paymentProcessor = new HybridPaymentProcessor();
 
-// التفعيلات الأساسية
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// --- API: حساب قيمة الدفع الهجين (بدون تنفيذ) ---
+// ============================================================
+// واجهات برمجة التطبيقات (APIs)
+// ============================================================
+
+// --- API: حساب قيمة الدفع الهجين ---
 app.post('/api/calculate-payment', (req, res) => {
     try {
         const { productPriceUSD, piPercent, yerPercent } = req.body;
@@ -44,7 +48,7 @@ app.post('/api/process-payment', async (req, res) => {
     }
 });
 
-// --- API: تحديث نسب الدفع للبائع ---
+// --- API: تحديث نسب الدفع ---
 app.post('/api/update-ratios', (req, res) => {
     try {
         const { piPercent, yerPercent } = req.body;
@@ -75,13 +79,8 @@ app.get('/api/config', (req, res) => {
 // التكامل مع نظام أكواد AJYAL
 // ============================================================
 
-// عنوان خادم AJYAL (يُقرأ من متغير البيئة)
 const AJYAL_API = process.env.AJYAL_API || 'http://localhost:3001/api';
 
-/**
- * API: التحقق من صحة كود المساعدة (استدعاء AJYAL)
- * POST /api/pos/verify-voucher
- */
 app.post('/api/pos/verify-voucher', async (req, res) => {
     try {
         const { code, posId } = req.body;
@@ -112,10 +111,6 @@ app.post('/api/pos/verify-voucher', async (req, res) => {
     }
 });
 
-/**
- * API: صرف الكود (استبدال السلع)
- * POST /api/pos/redeem-voucher
- */
 app.post('/api/pos/redeem-voucher', async (req, res) => {
     try {
         const { code, posId } = req.body;
@@ -152,18 +147,13 @@ app.post('/api/pos/redeem-voucher', async (req, res) => {
 // مسار الاستبيان السعري (تم دمجه من index.js)
 // ============================================================
 
-/**
- * API: محاكاة الاستبيان السعري لمنع التزوير والتضخم
- * GET /api/pricing-poll
- */
 app.get('/api/pricing-poll', (req, res) => {
-    // محاكاة الإجماع السعري العشوائي (يستخدم BigInt داخلياً للحفاظ على الدقة)
     const baseSurveyPrice = Math.floor(Math.random() * (120 - 90 + 1)) + 90;
     res.json({
         status: "SUCCESS",
         system: "BY-GAV-YEM-2026-STABLE",
         calibratedPriceYER: baseSurveyPrice,
-        precision: "BIGINT_COMPLIANT" // تأكيد الالتزام بالدقة
+        precision: "BIGINT_COMPLIANT"
     });
 });
 
@@ -171,23 +161,20 @@ app.get('/api/pricing-poll', (req, res) => {
 // دعم الترجمة (Localization)
 // ============================================================
 
-const languageManager = require('./locales/languageManager');
-
-app.get('/api/localization', (req, res) => {
-    const userBrowserLang = req.headers['accept-language'];
-    const localizationData = languageManager.detectAndGetTranslation(userBrowserLang);
-    res.json(localizationData);
-});
+try {
+    const languageManager = require('./locales/languageManager');
+    app.get('/api/localization', (req, res) => {
+        const userBrowserLang = req.headers['accept-language'];
+        const localizationData = languageManager.detectAndGetTranslation(userBrowserLang);
+        res.json(localizationData);
+    });
+} catch (error) {
+    console.warn('Language manager not available:', error.message);
+}
 
 // ============================================================
-// تشغيل الخادم
+// ✅ نقطة الدخول لـ Vercel (تصدير التطبيق)
 // ============================================================
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 خادم الدفع الهجين (طريق البخور) يعمل على المنفذ ${PORT}`);
-    console.log(`📊 قيمة GCV: ${HYBRID_CONFIG.GCV_VALUE_USD} دولار لكل Pi`);
-    console.log(`💱 سعر صرف YER: ${HYBRID_CONFIG.YER_TO_USD_RATE} دولار لكل YER`);
-});
-
-module.exports = app; // للتوافق مع Vercel
+// تصدير التطبيق مباشرة (بدون app.listen)
+module.exports = app;
