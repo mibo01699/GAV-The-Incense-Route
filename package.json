@@ -1,4 +1,26 @@
-"scripts": {
-  "start": "node index.js",
-  "test": "node -e \"const calc = require('./payment-calculator'); console.log('🛒 فحص محرك احتساب فواتير نقاط البيع التوافقية GAV: PASSED');\""
+{
+  "name": "gav-the-incense-route",
+  "version": "1.0.0",
+  "description": "GAV: Decentralized Supply Chain & Hybrid Payment Protocol (Sandbox/Testnet)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "exit 0",
+    "test": "jest --runInBand",
+    "lint": "echo 'No linter configured' && exit 0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "jest": {
+    "testMatch": ["<rootDir>/__tests__/**/*.test.js"],
+    "testPathIgnorePatterns": ["/node_modules/"]
+  }
 }
