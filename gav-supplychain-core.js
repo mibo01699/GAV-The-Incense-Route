@@ -1,43 +1,66 @@
 /**
- * GAV - The Incense Route: Advanced Dual-Token Split Payment Engine
- * Compliant with Pi Network Protocol 23 & GCV (Global Consensus Value) Framework
- * Integrates Pi Wallet and YER Dex-Token directly into a single transactional split.
+ * GAV - The Incense Route: Dual-Token Split Payment Engine (Sandbox/Testnet)
+ * يستخدم BigInt حصرياً للعمليات المالية
  */
 
 class GAVHybridPaymentEngine {
     constructor() {
-        this.PI_GCV_VALUE_USD = 314159; // السعر المرجعي الافتراضي المستقر لمجتمع الرواد لتثبيت أسعار السلع
+        // مرجع سعري داخلي (ليس رسمياً)
+        this.PI_GCV_VALUE_USD = 314159n; // يُستخدم كمرجع داخلي فقط
         this.batches = {};
     }
 
+    /**
+     * حساب حصة الدفع المقسمة بين Pi و YER (باستخدام BigInt)
+     * @param {string} totalProductValueUSD - القيمة الإجمالية بالدولار (كنص، لتحويله إلى BigInt)
+     * @param {string} yerDexPriceUSD - سعر YER مقابل الدولار (كنص)
+     * @param {number} piPaymentPercentage - النسبة المئوية للدفع بـ Pi (30 افتراضياً)
+     */
     calculateSplitInvoice(totalProductValueUSD, yerDexPriceUSD, piPaymentPercentage = 30) {
-        if (piPaymentPercentage < 0 || piPaymentPercentage > 100) throw new Error("Invalid percentage split.");
+        if (piPaymentPercentage < 0 || piPaymentPercentage > 100) {
+            throw new Error("Invalid percentage split.");
+        }
 
-        const piShareUSD = totalProductValueUSD * (piPaymentPercentage / 100);
-        const yerShareUSD = totalProductValueUSD * ((100 - piPaymentPercentage) / 100);
+        // تحويل القيم إلى BigInt (بافتراض أن المدخلات كنصوص)
+        const totalValue = BigInt(totalProductValueUSD);
+        const yerPrice = BigInt(yerDexPriceUSD);
+        const piRatio = BigInt(piPaymentPercentage);
+        const yerRatio = BigInt(100 - piPaymentPercentage);
 
-        const exactPiRequired = piShareUSD / this.PI_GCV_VALUE_USD;
-        const exactYERRequired = yerShareUSD / yerDexPriceUSD;
+        // حساب حصة كل عملة (باستخدام BigInt)
+        const piShare = (totalValue * piRatio) / 100n;
+        const yerShare = (totalValue * yerRatio) / 100n;
+
+        // حساب الكميات المطلوبة (باستخدام BigInt)
+        const piRequired = (piShare * 1000000n) / this.PI_GCV_VALUE_USD; // تحجيم لتجنب الفاصلة
+        const yerRequired = (yerShare * 1000000n) / yerPrice;
 
         return {
-            totalInvoiceUSD: totalProductValueUSD,
+            totalInvoiceUSD: totalValue.toString(),
             piPaymentRatio: `${piPaymentPercentage}%`,
             yerPaymentRatio: `${100 - piPaymentPercentage}%`,
-            requiredPiCoins: exactPiRequired.toFixed(8),
-            requiredYERTokens: exactYERRequired.toFixed(4)
+            requiredPiCoins: piRequired.toString(),
+            requiredYERTokens: yerRequired.toString(),
+            precision: 'BIGINT_COMPLIANT'
         };
     }
 
+    /**
+     * تنفيذ معالجة الدفع الهجين (محاكاة)
+     */
     async executeDualWalletSettlement(batchId, buyerPiUser, invoiceDetails, piTxId, yerTxId) {
-        if (!piTxId || !yerTxId) throw new Error("Dual transaction proofs (Pi Tx + YER Tx) are both mandatory.");
-        
-        console.log(`[Validating Pi Wallet Payment via GCV...] Tx: ${piTxId} for ${invoiceDetails.requiredPiCoins} Pi`);
-        console.log(`[Validating YER Wallet Payment via DEX...] Tx: ${yerTxId} for ${invoiceDetails.requiredYERTokens} YER`);
+        if (!piTxId || !yerTxId) {
+            throw new Error("Dual transaction proofs (Pi Tx + YER Tx) are both mandatory.");
+        }
+
+        // محاكاة التحقق (بدون اتصال حقيقي بشبكة Pi)
+        console.log(`[Sandbox] Validating Pi payment: ${piTxId}`);
+        console.log(`[Sandbox] Validating YER payment: ${yerTxId}`);
 
         return {
             status: "Success",
             batchId: batchId,
-            settlementType: "GCV-Hybrid-Dual-Wallet",
+            settlementType: "Hybrid-Dual-Wallet-Sandbox",
             isSettled: true,
             timestamp: Date.now()
         };
