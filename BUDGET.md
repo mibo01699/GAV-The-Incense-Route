@@ -1,8 +1,29 @@
-# 🗺️ GAV INCENSE ROAD INTEGRATION BUDGET
+# Budget Overview (Sandbox/Testnet)
 
-## 📌 Logistics & Platform Synchronization
-This sub-budget layout defines the interaction boundaries between the logistics infrastructure of the Incense Road project and the seed-funded components of `BIGISH-YER` ($700 USD allocation).
+## 🗺️ GAV Incense Route Project
 
-## 📊 Shared Technical Distribution
-- **Sana'a Control Modem Node (100% Shared):** Used to transmit encrypted logistical delivery updates and deployment validation proofs via `incense-gateway.js`.
-- **Ecosystem Cloud Isolation Layers ($250 USD Allocation):** Hosts the decentralized API ledger that connects the client interface of the Incense Road directly to the smart contracts of the wallet.
+This document is a placeholder for the GAV project budget.
+
+## 📊 Allocations
+
+| Category | Amount (YER) | Notes |
+|----------|--------------|-------|
+| Development | 10,000,000 | Sandbox testing |
+| Infrastructure | 5,000,000 | Vercel hosting |
+| Community | 2,000,000 | Testing incentives |
+
+> **Note:** These are simulated figures for testing purposes only. No real funds are allocated.
+
+## 🔗 Integration Budgets
+
+Integration with BIGISH-YER and AJYAL is handled separately.
+
+## ⚠️ Important
+
+This is a **sandbox/testnet-only prototype**. No specific budget allocation is claimed.
+
+> **Note:** The figures above are illustrative only and do not represent actual financial commitments.
+
+---
+
+**🦅 Developed by Arabian Eagle Technology Group**
