@@ -1,46 +1,30 @@
-// GAV-The-Incense-Route: Decentralized Supply Chain Ledger via Pi Network SDK
-// Research Reference: Economic Stabilization & Regional Trade Hub Framework
+// incense_route_ledger.js - نظام دفاتر تتبع البضائع
+// يستخدم BigInt للعمليات المالية
 
 class IncenseRouteLedger {
     constructor() {
-        this.shipments = [];
-        this.piPaymentGatewayStatus = "READY";
+        this.transactions = [];
     }
 
-    // تسجيل شحنة تجارية جديدة عبر المسار الإقليمي
-    registerShipment(shipmentId, origin, destination, cargoDetails, piValue) {
-        const newShipment = {
-            id: shipmentId,
-            origin: origin,
-            destination: destination,
-            cargo: cargoDetails,
-            valueInPi: piValue,
-            paymentStatus: "PENDING",
-            transitStatus: "In-Transit",
-            timestamp: new Date().toISOString()
-        };
-        this.shipments.push(newShipment);
-        console.log(`[Ledger] Shipment ${shipmentId} registered from ${origin} to ${destination}. Value: ${piValue} Pi.`);
-        return newShipment;
+    addTransaction(productId, farmerId, amountYER) {
+        // تحويل المبلغ إلى BigInt
+        const amount = BigInt(amountYER);
+        
+        this.transactions.push({
+            productId,
+            farmerId,
+            amount: amount.toString(),
+            timestamp: new Date().toISOString(),
+            status: 'PENDING'
+        });
+
+        return { success: true, transactionId: this.transactions.length - 1 };
     }
 
-    // محاكاة معالجة الدفع الآمن باستخدام Pi SDK API
-    processPiPayment(shipmentId, buyerWalletAddress) {
-        const shipment = this.shipments.find(s => s.id === shipmentId);
-        if (!shipment) {
-            console.error(`[Error] Shipment ${shipmentId} not found.`);
-            return;
-        }
-
-        // تحويل الحالة برمجياً عند نجاح توقيع المعاملة بالـ Pi Wallet
-        shipment.paymentStatus = "COMPLETED";
-        shipment.transitStatus = "Cleared_For_Delivery";
-        console.log(`[Pi API] Payment Successful for Shipment ${shipmentId} from wallet: ${buyerWalletAddress}`);
-        console.log(`[Ledger] Blockchain updated. Status: ${shipment.transitStatus}`);
+    getTotalAmount() {
+        // جمع المبالغ باستخدام BigInt
+        return this.transactions.reduce((sum, tx) => sum + BigInt(tx.amount), 0n).toString();
     }
 }
 
-// تشغيل محاكاة النظام التجاري المفتوح
-const tradeNetwork = new IncenseRouteLedger();
-const demoShipment = tradeNetwork.registerShipment("TX-9901", "Sanaa-Yemen", "Regional-Hub", "Artisan Coffee & Frankincense", 4500);
-tradeNetwork.processPiPayment("TX-9901", "GD3Y...PI_WALLED_ADDRESS_MOCK");
+module.exports = IncenseRouteLedger;
