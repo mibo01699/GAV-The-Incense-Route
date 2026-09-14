@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GAV - The Incense Route</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <style>
+    :root { --primary: #1a4d2e; --primary-light: #2d7a4a; --gold: #d4af37; --bg: #f5f7fa; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: var(--bg); direction: rtl; min-height: 100vh; }
+    .top-bar { background: var(--primary); color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.2rem; font-weight: bold; }
+    .network-badge { font-size: 0.85rem; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 12px; }
+    .container { max-width: 600px; margin: 16px auto; padding: 0 12px; }
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .card h1, .card h2 { color: var(--primary); margin-bottom: 12px; }
+    button { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border: none; padding: 14px 24px; border-radius: 30px; font-size: 1.1rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 12px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error { color: #e74c3c; margin-top: 10px; padding: 8px; background: #fdecea; border-radius: 6px; display: none; }
+  </style>
+</head>
+<body>
+  <header class="top-bar">
+    <div class="logo">🛣️ GAV - The Incense Route</div>
+    <div class="network-badge">Testnet</div>
+  </header>
+  <main class="container">
+    <section id="login-section" class="card">
+      <h1>GAV - طريق البخور</h1>
+      <p>بروتوكول لامركزي لسلاسل التوريد والتتبع</p>
+      <button id="login-btn">🚀 تسجيل الدخول بحساب Pi</button>
+      <div id="login-error" class="error"></div>
+    </section>
+    <section id="dashboard-section" style="display:none;">
+      <div class="card">
+        <h2>مرحباً، <span id="user-name"></span></h2>
+        <p>معرف Pi: <span id="user-id"></span></p>
+      </div>
+      <div class="card">
+        <h2>📦 الخدمات</h2>
+        <button onclick="alert('ميزة قيد التطوير')">نقاط البيع (POS)</button>
+        <button onclick="alert('ميزة قيد التطوير')">تتبع البضائع</button>
+        <button onclick="alert('ميزة قيد التطوير')">الدفع الهجين</button>
+      </div>
+    </section>
+  </main>
+  <script src="js/pi-config.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
