@@ -1,6 +1,5 @@
 // ============================================
 // GAV - The Incense Route | Smart Converter v2
-// مع دعم القيمة المرجعية
 // ============================================
 
 /**
@@ -40,30 +39,28 @@ function updateReferenceDisplay() {
 
     const source = sourceSelect.value;
 
-    // إظهار/إخفاء حقل القيمة المخصصة
     if (customGroup) {
         customGroup.style.display = (source === 'custom') ? 'block' : 'none';
     }
 
-    // عرض القيمة المرجعية الحالية
     if (display) {
         let text = '';
         let color = '#7f8c8d';
 
         switch (source) {
             case 'gcvalue':
-                text = '314,159 USD (القيمة المرجعية المقترحة)';
+                text = '💎 314,159 USD — القيمة المرجعية المقترحة';
                 color = '#d4af37';
                 break;
             case 'dex':
-                text = 'السعر الحي من Pi DEX AMM (Pi/YER)';
+                text = '📈 السعر الحي من Pi DEX AMM (Pi/YER)';
                 color = '#2d7a4a';
                 break;
             case 'custom':
                 const customVal = parseFloat(customValueInput?.value) || 0;
                 text = customVal > 0
-                    ? `${customVal.toLocaleString()} USD (قيمة مخصصة)`
-                    : 'أدخل قيمة مخصصة';
+                    ? `✏️ ${customVal.toLocaleString()} USD — قيمة مخصصة`
+                    : '✏️ أدخل قيمة مخصصة أعلاه';
                 color = '#4a90e2';
                 break;
             default:
@@ -73,7 +70,6 @@ function updateReferenceDisplay() {
         display.textContent = text;
         display.style.color = color;
         display.style.fontWeight = '600';
-        display.style.marginTop = '8px';
     }
 }
 
@@ -90,15 +86,9 @@ function getReferenceValue() {
     let value = 0;
 
     switch (source) {
-        case 'gcvalue':
-            value = 314159;
-            break;
-        case 'dex':
-            value = 0; // يُجلب لاحقاً من BIGISH-YER
-            break;
-        case 'custom':
-            value = parseFloat(customValueInput?.value) || 0;
-            break;
+        case 'gcvalue': value = 314159; break;
+        case 'dex': value = 0; break;
+        case 'custom': value = parseFloat(customValueInput?.value) || 0; break;
     }
 
     return { source, value };
@@ -131,7 +121,7 @@ function applyConverterToProduct() {
     const ref = getReferenceValue();
     let refInfo = '';
     if (ref.source !== 'none') {
-        refInfo = `\n\nالقيمة المرجعية: ${ref.value > 0 ? ref.value.toLocaleString() : 'Pi DEX AMM'}`;
+        refInfo = `\n\nالقيمة المرجعية: ${ref.value > 0 ? ref.value.toLocaleString() + ' USD' : 'Pi DEX AMM'}`;
     }
 
     alert(`✅ تم تطبيق التقسيم:\n${piPart.toFixed(4)} Pi\n${yerPart.toFixed(0)} YER${refInfo}`);
@@ -167,7 +157,7 @@ async function convertWithAPI(totalPrice, currency, piRatio) {
 }
 
 /**
- * تهيئة المحول
+ * تهيئة المحول عند البدء
  */
 document.addEventListener('DOMContentLoaded', () => {
     const totalInput = document.getElementById('converter-total');
@@ -179,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customValueInput = document.getElementById('reference-custom-value');
     if (customValueInput) customValueInput.addEventListener('input', updateReferenceDisplay);
 
-    // إضافة زر "تطبيق" إذا لم يكن موجوداً
+    // إضافة زر "تطبيق على المنتج"
     const converterCard = document.getElementById('converter-result')?.closest('.card');
     if (converterCard && !converterCard.querySelector('.apply-converter-btn')) {
         const btn = document.createElement('button');
