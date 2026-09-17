@@ -7,20 +7,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// إعدادات الاتصال بـ BIGISH-YER (المنظومة المركزية)
 const BIGISH_YER_URL = process.env.BIGISH_YER_URL || 'https://bigish-yer.vercel.app';
 const GAV_APP_ID = process.env.GAV_APP_ID || 'gav';
 const GAV_API_KEY = process.env.GAV_API_KEY || 'gav-secret-pending';
 
-// ============================================
-// Middleware
-// ============================================
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
-// In-Memory Database (للاختبار)
+// Database
 // ============================================
 const db = {
     products: [],
@@ -32,7 +28,15 @@ const db = {
         { id: 'spices', name: 'التوابل', nameEn: 'Spices', icon: '🌶️' },
         { id: 'handicrafts', name: 'الحرف اليدوية', nameEn: 'Handicrafts', icon: '🏺' },
         { id: 'coffee', name: 'البن والقهوة', nameEn: 'Coffee', icon: '☕' },
-        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Natural Honey', icon: '🍯' }
+        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Natural Honey', icon: '🍯' },
+        { id: 'food', name: 'المواد الغذائية', nameEn: 'Food Products', icon: '🥫' },
+        { id: 'vegetables', name: 'الخضروات والفواكه', nameEn: 'Vegetables & Fruits', icon: '🥬' },
+        { id: 'hardware', name: 'الخردوات والأدوات', nameEn: 'Hardware & Tools', icon: '🔧' },
+        { id: 'electronics', name: 'الأجهزة الإلكترونية', nameEn: 'Electronics', icon: '📱' },
+        { id: 'clothing', name: 'الملابس', nameEn: 'Clothing', icon: '👕' },
+        { id: 'home', name: 'مستلزمات المنزل', nameEn: 'Home Supplies', icon: '🏠' },
+        { id: 'agriculture', name: 'المستلزمات الزراعية', nameEn: 'Agricultural Supplies', icon: '🌾' },
+        { id: 'others', name: 'أخرى', nameEn: 'Others', icon: '📦' }
     ]
 };
 
@@ -53,7 +57,8 @@ app.get('/api/health', (req, res) => {
         stats: {
             products: db.products.length,
             orders: db.orders.length,
-            merchants: Object.keys(db.merchants).length
+            merchants: Object.keys(db.merchants).length,
+            categories: db.categories.length
         }
     });
 });
@@ -80,7 +85,7 @@ app.get('/api/products', (req, res) => {
         const s = search.toLowerCase();
         filtered = filtered.filter(p =>
             p.name.toLowerCase().includes(s) ||
-            p.description.toLowerCase().includes(s)
+            (p.description && p.description.toLowerCase().includes(s))
         );
     }
 
@@ -103,7 +108,6 @@ app.post('/api/products', async (req, res) => {
     }
 
     try {
-        // التحقق من هوية التاجر عبر BIGISH-YER
         const userResponse = await fetch(`${BIGISH_YER_URL}/api/auth`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -122,6 +126,14 @@ app.post('/api/products', async (req, res) => {
             category: product.category || 'incense',
             pricePi: parseFloat(product.pricePi) || 0,
             priceYER: parseFloat(product.priceYER) || 0,
+            // ✅ القيمة المرجعية الجديدة
+            referenceValue: {
+                source: product.referenceSource || 'none',   // 'custom' | 'dex' | 'none'
+                customValue: parseFloat(product.referenceCustomValue) || 0,
+                piRatio: parseFloat(product.referencePiRatio) || 50,
+                currency: product.referenceCurrency || 'USD',
+                updatedAt: new Date().toISOString()
+            },
             imageUrl: product.imageUrl || '',
             stock: parseInt(product.stock) || 1,
             createdAt: new Date().toISOString(),
@@ -163,7 +175,7 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // ============================================
-// API: Checkout (Integration with BIGISH-YER)
+// API: Checkout
 // ============================================
 app.post('/api/checkout', async (req, res) => {
     const { accessToken, productId, piAmount, yerAmount, quantity, shippingInfo } = req.body;
@@ -180,7 +192,6 @@ app.post('/api/checkout', async (req, res) => {
         const pi = parseFloat(piAmount) || (product.pricePi * qty);
         const yer = parseFloat(yerAmount) || (product.priceYER * qty);
 
-        // ✅ استدعاء BIGISH-YER Integration API
         const paymentResponse = await fetch(`${BIGISH_YER_URL}/api/integration/pay`, {
             method: 'POST',
             headers: {
@@ -206,7 +217,6 @@ app.post('/api/checkout', async (req, res) => {
             });
         }
 
-        // تسجيل الطلب في GAV
         const order = {
             id: `ord_${Date.now()}`,
             productId,
@@ -238,7 +248,7 @@ app.post('/api/checkout', async (req, res) => {
 });
 
 // ============================================
-// API: My Orders
+// API: Orders
 // ============================================
 app.get('/api/orders/user/:uid', (req, res) => {
     const { uid } = req.params;
@@ -248,10 +258,10 @@ app.get('/api/orders/user/:uid', (req, res) => {
 });
 
 // ============================================
-// API: Smart Converter
+// API: Smart Converter (مُحدّث مع القيمة المرجعية)
 // ============================================
 app.post('/api/converter', (req, res) => {
-    const { totalPrice, currency, piRatio } = req.body;
+    const { totalPrice, currency, piRatio, referenceSource, referenceValue } = req.body;
     if (!totalPrice) return res.status(400).json({ error: 'totalPrice required' });
 
     const total = parseFloat(totalPrice);
@@ -267,6 +277,11 @@ app.post('/api/converter', (req, res) => {
             yerAmount: parseFloat(yerPart.toFixed(4)),
             piPercentage: ratio * 100,
             yerPercentage: (1 - ratio) * 100
+        },
+        referenceValue: {
+            source: referenceSource || 'none',
+            value: parseFloat(referenceValue) || 0,
+            currency: currency || 'USD'
         }
     });
 });
@@ -299,7 +314,7 @@ app.get('/api/merchant/stats/:uid', (req, res) => {
 app.get('/api', (req, res) => {
     res.json({
         message: '🚀 GAV - The Incense Route API',
-        version: '1.0.0',
+        version: '1.1.0',
         integrations: { bigishYer: BIGISH_YER_URL },
         endpoints: [
             '/api/health', '/api/categories', '/api/products', '/api/products/:id',
