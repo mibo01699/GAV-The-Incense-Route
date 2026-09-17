@@ -1,24 +1,30 @@
 // ============================================
-// GAV - The Incense Route | Authentication + Navigation
+// GAV - The Incense Route | Authentication + Navigation v2
 // ============================================
 
 let currentUser = null;
 const BIGISH_YER_URL = 'https://bigish-yer.vercel.app';
 
 // ============================================
-// دالة التنقل بين الصفحات (مهمة جداً)
+// دالة التنقل بين الصفحات (محصّنة)
 // ============================================
 function showPage(pageName) {
     try {
-        document.querySelectorAll('.page').forEach(page => {
+        // إخفاء جميع الصفحات
+        const allPages = document.querySelectorAll('.page');
+        allPages.forEach(page => {
             page.classList.remove('active');
+            page.style.display = 'none'; // إجبار الإخفاء
         });
 
+        // إظهار الصفحة المطلوبة
         const targetPage = document.getElementById('page-' + pageName);
         if (targetPage) {
             targetPage.classList.add('active');
+            targetPage.style.display = 'block';
         }
 
+        // تحديث حالة أزرار التنقل
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.remove('active');
             if (btn.dataset.page === pageName) {
@@ -103,18 +109,33 @@ async function loginWithPi() {
 // معالجة نجاح تسجيل الدخول
 // ============================================
 function onLoginSuccess(user) {
+    // تحديث الشريط العلوي
     document.getElementById('username').textContent = user.username;
     document.getElementById('logout-btn').style.display = 'inline-block';
+
+    // تحديث بيانات المستخدم
     document.getElementById('user-name').textContent = user.username;
     document.getElementById('user-id').textContent = user.uid;
 
-    document.getElementById('page-login').classList.remove('active');
+    // ✅ إخفاء صفحة تسجيل الدخول بشكل صريح
+    const loginPage = document.getElementById('page-login');
+    if (loginPage) {
+        loginPage.classList.remove('active');
+        loginPage.style.display = 'none';
+    }
+
+    // ✅ إظهار شريط التنقل
     document.getElementById('bottom-nav').style.display = 'flex';
 
-    // الآن showPage موجودة، لن يفشل الكود
+    // ✅ إظهار الزر العائم 🧮
+    if (typeof showCalculatorFAB === 'function') {
+        showCalculatorFAB();
+    }
+
+    // ✅ عرض الصفحة الرئيسية
     showPage('home');
 
-    // تحميل البيانات
+    // تحميل الأقسام
     if (typeof loadCategories === 'function') loadCategories();
 }
 
@@ -146,9 +167,13 @@ function logout() {
 }
 
 // ============================================
-// استعادة الجلسة
+// إخفاء الزر العائم عند البدء (يظهر بعد الدخول)
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof hideCalculatorFAB === 'function') {
+        hideCalculatorFAB();
+    }
+
     const savedUser = localStorage.getItem('gav_user');
     if (savedUser) {
         try {
