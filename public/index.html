@@ -11,9 +11,7 @@
 
 <header class="top-bar">
     <div class="logo">🛣️ GAV</div>
-    <div class="network-badge">
-        <span class="dot testnet"></span> Testnet
-    </div>
+    <div class="network-badge"><span class="dot testnet"></span> Testnet</div>
     <div id="user-info">
         <span id="username">زائر</span>
         <button id="logout-btn" style="display:none;" onclick="logout()">خروج</button>
@@ -22,30 +20,102 @@
 
 <nav class="bottom-nav" id="bottom-nav" style="display:none;">
     <button class="nav-btn active" data-page="home" onclick="showPage('home')">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-label">الرئيسية</span>
+        <span class="nav-icon">🏠</span><span class="nav-label">الرئيسية</span>
     </button>
     <button class="nav-btn" data-page="products" onclick="showPage('products')">
-        <span class="nav-icon">📦</span>
-        <span class="nav-label">المنتجات</span>
+        <span class="nav-icon">📦</span><span class="nav-label">المنتجات</span>
     </button>
     <button class="nav-btn" data-page="cart" onclick="showPage('cart')">
-        <span class="nav-icon">🛒</span>
-        <span class="nav-label">السلة</span>
+        <span class="nav-icon">🛒</span><span class="nav-label">السلة</span>
     </button>
     <button class="nav-btn" data-page="orders" onclick="showPage('orders')">
-        <span class="nav-icon">📋</span>
-        <span class="nav-label">طلباتي</span>
+        <span class="nav-icon">📋</span><span class="nav-label">طلباتي</span>
     </button>
     <button class="nav-btn" data-page="merchant" onclick="showPage('merchant')">
-        <span class="nav-icon">🏪</span>
-        <span class="nav-label">التاجر</span>
+        <span class="nav-icon">🏪</span><span class="nav-label">التاجر</span>
     </button>
 </nav>
 
+<!-- ============================================ -->
+<!-- زر الحاسبة العائم (FAB) -->
+<!-- ============================================ -->
+<button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية" style="display:none;">
+    🧮
+</button>
+
+<!-- ============================================ -->
+<!-- نافذة الحاسبة الذكية -->
+<!-- ============================================ -->
+<div id="calculator-modal" class="calculator-modal" style="display:none;">
+    <div class="calculator-sheet">
+        <div class="calculator-header">
+            <h3>🧮 الحاسبة الذكية</h3>
+            <button class="calculator-close" onclick="closeCalculator()">✕</button>
+        </div>
+
+        <div class="calculator-body">
+            <!-- القيمة بالدولار -->
+            <div class="calc-field">
+                <label>💵 قيمة المنتج (USD)</label>
+                <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
+            </div>
+
+            <!-- القيمة المرجعية -->
+            <div class="calc-field">
+                <label>📊 القيمة المرجعية</label>
+                <div class="calc-options">
+                    <label class="calc-option">
+                        <input type="radio" name="calc-ref" value="gcvalue">
+                        <div class="calc-option-content">
+                            <span class="calc-option-icon">💎</span>
+                            <span class="calc-option-title">القيمة المرجعية</span>
+                            <span class="calc-option-desc">314,159 USD</span>
+                            <span class="calc-option-split">85% YER + 15% Pi</span>
+                        </div>
+                    </label>
+                    <label class="calc-option">
+                        <input type="radio" name="calc-ref" value="dex">
+                        <div class="calc-option-content">
+                            <span class="calc-option-icon">📈</span>
+                            <span class="calc-option-title">Pi DEX AMM</span>
+                            <span class="calc-option-desc">السعر الحي</span>
+                            <span class="calc-option-split">50% Pi + 50% YER</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- زر الحساب -->
+            <button class="btn-primary" onclick="calculateConversion()" style="margin-top:16px;">
+                ⚡ احسب التوزيع
+            </button>
+
+            <!-- النتائج -->
+            <div id="calc-results" style="display:none;margin-top:16px;">
+                <div class="calc-result-card">
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">💠 Pi</span>
+                        <strong id="calc-result-pi" class="calc-result-value">0</strong>
+                    </div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">🪙 YER</span>
+                        <strong id="calc-result-yer" class="calc-result-value">0</strong>
+                    </div>
+                    <div class="calc-result-note" id="calc-result-note"></div>
+                </div>
+                <button class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">
+                    📋 تطبيق على المنتج
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- المحتوى الرئيسي -->
+<!-- ============================================ -->
 <main class="container">
 
-    <!-- ========== صفحة تسجيل الدخول ========== -->
     <section id="page-login" class="page active">
         <div class="card">
             <h1>🛣️ GAV - طريق البخور</h1>
@@ -55,19 +125,15 @@
                 🚀 تسجيل الدخول بحساب Pi
             </button>
             <div id="login-error" class="error" style="display:none;"></div>
-            <div class="status-note">
-                <small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small>
-            </div>
+            <div class="status-note"><small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small></div>
         </div>
     </section>
 
-    <!-- ========== الصفحة الرئيسية ========== -->
     <section id="page-home" class="page">
         <div class="card user-card">
             <h2>مرحباً، <span id="user-name"></span></h2>
             <p class="user-id">معرف Pi: <span id="user-id"></span></p>
         </div>
-
         <div class="card">
             <h3>💰 محفظتك</h3>
             <div class="balance-grid">
@@ -84,19 +150,16 @@
                 <small>الدفع يتم عبر محفظة BIGISH-YER</small>
             </p>
         </div>
-
         <div class="card">
             <h3>🌿 تصفح الأقسام</h3>
             <div id="categories-grid" class="categories-grid"></div>
         </div>
-
         <div class="card">
             <h3>🔥 أحدث المنتجات</h3>
             <div id="featured-products" class="products-grid"></div>
         </div>
     </section>
 
-    <!-- ========== صفحة المنتجات ========== -->
     <section id="page-products" class="page">
         <div class="card">
             <h3>📦 جميع المنتجات</h3>
@@ -106,13 +169,10 @@
         </div>
     </section>
 
-    <!-- ========== صفحة السلة ========== -->
     <section id="page-cart" class="page">
         <div class="card">
             <h3>🛒 سلة التسوق</h3>
-            <div id="cart-items">
-                <p class="empty-state">السلة فارغة حالياً.</p>
-            </div>
+            <div id="cart-items"><p class="empty-state">السلة فارغة حالياً.</p></div>
             <div id="cart-summary" style="display:none;">
                 <div class="cart-total">
                     <span>الإجمالي:</span>
@@ -125,20 +185,14 @@
         </div>
     </section>
 
-    <!-- ========== صفحة الطلبات ========== -->
     <section id="page-orders" class="page">
         <div class="card">
             <h3>📋 طلباتي</h3>
-            <div id="orders-list">
-                <p class="empty-state">لا توجد طلبات بعد.</p>
-            </div>
-            <button class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">
-                🔄 تحديث
-            </button>
+            <div id="orders-list"><p class="empty-state">لا توجد طلبات بعد.</p></div>
+            <button class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">🔄 تحديث</button>
         </div>
     </section>
 
-    <!-- ========== صفحة التاجر ========== -->
     <section id="page-merchant" class="page">
         <div class="card">
             <h3>🏪 لوحة التاجر</h3>
@@ -162,26 +216,6 @@
             </div>
         </div>
 
-        <!-- القيمة المرجعية -->
-        <div class="card">
-            <h3>📊 القيمة المرجعية للـ Pi</h3>
-            <p class="subtitle">اختر مصدر القيمة المرجعية لمنتجاتك</p>
-
-            <select id="reference-source" onchange="updateReferenceDisplay()">
-                <option value="none">بدون قيمة مرجعية</option>
-                <option value="dex">السعر الحي من Pi DEX AMM</option>
-                <option value="gcvalue">القيمة المرجعية المقترحة (314,159)</option>
-                <option value="custom">قيمة مخصصة</option>
-            </select>
-
-            <div id="reference-custom-group" style="display:none;margin-top:8px;">
-                <input type="number" id="reference-custom-value" placeholder="أدخل القيمة المخصصة" step="0.01">
-            </div>
-
-            <div id="reference-display" style="font-size:0.85rem;margin-top:12px;padding:10px;background:#f5f7fa;border-radius:8px;"></div>
-        </div>
-
-        <!-- إضافة منتج -->
         <div class="card">
             <h3>➕ إضافة منتج جديد</h3>
             <input type="text" id="new-product-name" placeholder="اسم المنتج">
@@ -212,35 +246,22 @@
                 <option value="agriculture">المستلزمات الزراعية</option>
                 <option value="others">أخرى</option>
             </select>
-            <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi" step="0.01" style="margin-top:8px;">
-            <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER" step="1" style="margin-top:8px;">
+
+            <input type="number" id="new-product-price-usd" placeholder="قيمة المنتج بالدولار (USD)" step="0.01" style="margin-top:8px;">
+
+            <div class="product-calc-hint">
+                <small>💡 استخدم الحاسبة العائمة 🧮 لحساب التوزيع تلقائياً</small>
+            </div>
+
+            <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi (تلقائي)" step="0.0000000001" style="margin-top:8px;" readonly>
+            <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER (تلقائي)" step="0.01" style="margin-top:8px;" readonly>
+
+            <input type="hidden" id="new-product-reference-source">
+            <input type="hidden" id="new-product-pi-ratio">
+
             <button class="btn-primary" onclick="addProduct()" style="margin-top:12px;">
                 ➕ إضافة المنتج
             </button>
-        </div>
-
-        <!-- المحول الذكي -->
-        <div class="card">
-            <h3>🔄 المحول الذكي</h3>
-            <p class="subtitle">وزّع السعر بين Pi و YER</p>
-
-            <input type="number" id="converter-total" placeholder="السعر الإجمالي" step="0.01">
-
-            <div class="slider-container" style="margin-top:12px;">
-                <label>نسبة Pi: <span id="ratio-display">50%</span></label>
-                <input type="range" id="ratio-slider" min="0" max="100" value="50" oninput="updateConverter()">
-            </div>
-
-            <div id="converter-result" class="converter-result" style="margin-top:12px;">
-                <div class="converter-row">
-                    <span>Pi:</span>
-                    <strong id="converter-pi">0.00</strong>
-                </div>
-                <div class="converter-row">
-                    <span>YER:</span>
-                    <strong id="converter-yer">0.00</strong>
-                </div>
-            </div>
         </div>
 
         <div class="card">
