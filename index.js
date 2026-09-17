@@ -16,6 +16,17 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
+// أسعار التحويل المرجعية
+// ============================================
+const RATES = {
+    piGcvUsd: 314159,                                          // القيمة المرجعية المقترحة
+    piAmmUsd: parseFloat(process.env.PI_AMM_RATE) || 0.63,     // السعر الحي (مؤقت)
+    yerAmmUsd: parseFloat(process.env.YER_AMM_RATE) || 0.01,   // السعر الحي (مؤقت)
+    source: process.env.PI_AMM_RATE ? 'live' : 'placeholder',
+    updatedAt: new Date().toISOString()
+};
+
+// ============================================
 // Database
 // ============================================
 const db = {
@@ -71,12 +82,29 @@ app.get('/api/health', (req, res) => {
             appId: GAV_APP_ID,
             apiKeyConfigured: GAV_API_KEY !== 'gav-secret-pending'
         },
+        rates: RATES,
         stats: {
             products: db.products.length,
             orders: db.orders.length,
             merchants: Object.keys(db.merchants).length,
             categories: db.categories.length
         }
+    });
+});
+
+// ============================================
+// API: Rates (أسعار التحويل)
+// ============================================
+app.get('/api/rates', (req, res) => {
+    res.json({
+        success: true,
+        rates: {
+            piGcv: RATES.piGcvUsd,
+            piAmm: RATES.piAmmUsd,
+            yerAmm: RATES.yerAmmUsd
+        },
+        source: RATES.source,
+        timestamp: RATES.updatedAt
     });
 });
 
@@ -141,13 +169,14 @@ app.post('/api/products', async (req, res) => {
             name: product.name,
             description: product.description || '',
             category: product.category || 'incense',
+            priceUSD: parseFloat(product.priceUSD) || 0,
             pricePi: parseFloat(product.pricePi) || 0,
             priceYER: parseFloat(product.priceYER) || 0,
             referenceValue: {
-                source: product.referenceSource || 'none',
-                customValue: parseFloat(product.referenceCustomValue) || 0,
-                piRatio: parseFloat(product.referencePiRatio) || 50,
-                currency: product.referenceCurrency || 'USD',
+                source: product.referenceSource || 'gcvalue',
+                piRatio: parseFloat(product.referencePiRatio) || 15,
+                piRateUsed: parseFloat(product.piRateUsed) || RATES.piGcvUsd,
+                yerRateUsed: parseFloat(product.yerRateUsed) || RATES.yerAmmUsd,
                 updatedAt: new Date().toISOString()
             },
             imageUrl: product.imageUrl || '',
@@ -274,31 +303,73 @@ app.get('/api/orders/user/:uid', (req, res) => {
 });
 
 // ============================================
-// API: Smart Converter
+// API: Smart Converter (المنطق الديناميكي)
 // ============================================
 app.post('/api/converter', (req, res) => {
-    const { totalPrice, currency, piRatio, referenceSource, referenceValue } = req.body;
-    if (!totalPrice) return res.status(400).json({ error: 'totalPrice required' });
+    const { productUSD, referenceSource } = req.body;
+    if (!productUSD || parseFloat(productUSD) <= 0) {
+        return res.status(400).json({ error: 'productUSD required and must be > 0' });
+    }
 
-    const total = parseFloat(totalPrice);
-    const ratio = parseFloat(piRatio) || 0.5;
-    const piPart = total * ratio;
-    const yerPart = total * (1 - ratio);
+    const total = parseFloat(productUSD);
+    let result = {};
+
+    if (referenceSource === 'gcvalue') {
+        // GCV: 85% YER (رأس المال) + 15% Pi (الأرباح)
+        const capitalUSD = total * 0.85;
+        const profitUSD = total * 0.15;
+
+        const yerAmount = capitalUSD / RATES.yerAmmUsd;
+        const piAmount = profitUSD / RATES.piGcvUsd;
+
+        result = {
+            mode: 'GCV',
+            split: {
+                piPercentage: 15,
+                yerPercentage: 85,
+                piAmount: parseFloat(piAmount.toFixed(10)),
+                yerAmount: parseFloat(yerAmount.toFixed(4))
+            },
+            calculation: {
+                capitalUSD: parseFloat(capitalUSD.toFixed(2)),
+                profitUSD: parseFloat(profitUSD.toFixed(2)),
+                piRateUsed: RATES.piGcvUsd,
+                yerRateUsed: RATES.yerAmmUsd
+            }
+        };
+    } else if (referenceSource === 'dex') {
+        // AMM: 50% Pi + 50% YER (إجباري)
+        const piUSD = total * 0.50;
+        const yerUSD = total * 0.50;
+
+        const piAmount = piUSD / RATES.piAmmUsd;
+        const yerAmount = yerUSD / RATES.yerAmmUsd;
+
+        result = {
+            mode: 'AMM/DEX',
+            split: {
+                piPercentage: 50,
+                yerPercentage: 50,
+                piAmount: parseFloat(piAmount.toFixed(4)),
+                yerAmount: parseFloat(yerAmount.toFixed(4))
+            },
+            calculation: {
+                piUSD: parseFloat(piUSD.toFixed(2)),
+                yerUSD: parseFloat(yerUSD.toFixed(2)),
+                piRateUsed: RATES.piAmmUsd,
+                yerRateUsed: RATES.yerAmmUsd
+            }
+        };
+    } else {
+        return res.status(400).json({ error: 'Invalid referenceSource (use: gcvalue or dex)' });
+    }
 
     res.json({
         success: true,
-        original: { total, currency: currency || 'Pi' },
-        split: {
-            piAmount: parseFloat(piPart.toFixed(4)),
-            yerAmount: parseFloat(yerPart.toFixed(4)),
-            piPercentage: ratio * 100,
-            yerPercentage: (1 - ratio) * 100
-        },
-        referenceValue: {
-            source: referenceSource || 'none',
-            value: parseFloat(referenceValue) || 0,
-            currency: currency || 'USD'
-        }
+        original: { productUSD: total },
+        ...result,
+        rates: RATES,
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -330,13 +401,14 @@ app.get('/api/merchant/stats/:uid', (req, res) => {
 app.get('/api', (req, res) => {
     res.json({
         message: '🚀 GAV - The Incense Route API',
-        version: '1.2.0',
+        version: '1.3.0',
         integrations: { bigishYer: BIGISH_YER_URL },
         categories: db.categories.length,
         endpoints: [
-            '/api/health', '/api/categories', '/api/products', '/api/products/:id',
-            '/api/checkout', '/api/orders/user/:uid', '/api/converter',
-            '/api/merchant/stats/:uid'
+            '/api/health', '/api/rates', '/api/categories',
+            '/api/products', '/api/products/:id',
+            '/api/checkout', '/api/orders/user/:uid',
+            '/api/converter', '/api/merchant/stats/:uid'
         ]
     });
 });
@@ -351,6 +423,7 @@ if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`✅ GAV running on port ${PORT} (${NODE_ENV})`);
         console.log(`📦 Categories: ${db.categories.length}`);
+        console.log(`💱 Rates: GCV=$${RATES.piGcvUsd} | Pi-AMM=$${RATES.piAmmUsd} | YER-AMM=$${RATES.yerAmmUsd}`);
         console.log(`🔗 Connected to BIGISH-YER: ${BIGISH_YER_URL}`);
     });
 }
