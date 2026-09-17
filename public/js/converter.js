@@ -1,185 +1,144 @@
 // ============================================
-// GAV - The Incense Route | Smart Converter v2
+// GAV - The Incense Route | Smart Calculator v3
+// Dynamic Calculator with 2 reference modes only
 // ============================================
 
-/**
- * تحديث نتيجة المحول
- */
-function updateConverter() {
-    const totalInput = document.getElementById('converter-total');
-    const slider = document.getElementById('ratio-slider');
-    const ratioDisplay = document.getElementById('ratio-display');
-    const piEl = document.getElementById('converter-pi');
-    const yerEl = document.getElementById('converter-yer');
+let lastCalculation = null;
 
-    if (!totalInput || !slider) return;
-
-    const total = parseFloat(totalInput.value) || 0;
-    const ratio = parseInt(slider.value) / 100;
-
-    if (ratioDisplay) ratioDisplay.textContent = `${slider.value}% Pi`;
-
-    const piPart = total * ratio;
-    const yerPart = total * (1 - ratio);
-
-    if (piEl) piEl.textContent = piPart.toFixed(4) + ' Pi';
-    if (yerEl) yerEl.textContent = yerPart.toFixed(0) + ' YER';
-}
-
-/**
- * تحديث عرض القيمة المرجعية
- */
-function updateReferenceDisplay() {
-    const sourceSelect = document.getElementById('reference-source');
-    const customValueInput = document.getElementById('reference-custom-value');
-    const customGroup = document.getElementById('reference-custom-group');
-    const display = document.getElementById('reference-display');
-
-    if (!sourceSelect) return;
-
-    const source = sourceSelect.value;
-
-    if (customGroup) {
-        customGroup.style.display = (source === 'custom') ? 'block' : 'none';
-    }
-
-    if (display) {
-        let text = '';
-        let color = '#7f8c8d';
-
-        switch (source) {
-            case 'gcvalue':
-                text = '💎 314,159 USD — القيمة المرجعية المقترحة';
-                color = '#d4af37';
-                break;
-            case 'dex':
-                text = '📈 السعر الحي من Pi DEX AMM (Pi/YER)';
-                color = '#2d7a4a';
-                break;
-            case 'custom':
-                const customVal = parseFloat(customValueInput?.value) || 0;
-                text = customVal > 0
-                    ? `✏️ ${customVal.toLocaleString()} USD — قيمة مخصصة`
-                    : '✏️ أدخل قيمة مخصصة أعلاه';
-                color = '#4a90e2';
-                break;
-            default:
-                text = 'لم يتم اختيار قيمة مرجعية';
-        }
-
-        display.textContent = text;
-        display.style.color = color;
-        display.style.fontWeight = '600';
+// ============================================
+// فتح / إغلاق الحاسبة
+// ============================================
+function openCalculator() {
+    const modal = document.getElementById('calculator-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
     }
 }
 
-/**
- * الحصول على القيمة المرجعية الحالية
- */
-function getReferenceValue() {
-    const sourceSelect = document.getElementById('reference-source');
-    const customValueInput = document.getElementById('reference-custom-value');
-
-    if (!sourceSelect) return { source: 'none', value: 0 };
-
-    const source = sourceSelect.value;
-    let value = 0;
-
-    switch (source) {
-        case 'gcvalue': value = 314159; break;
-        case 'dex': value = 0; break;
-        case 'custom': value = parseFloat(customValueInput?.value) || 0; break;
+function closeCalculator() {
+    const modal = document.getElementById('calculator-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
     }
-
-    return { source, value };
 }
 
-/**
- * تطبيق السعر المقسم على حقول إضافة المنتج
- */
-function applyConverterToProduct() {
-    const totalInput = document.getElementById('converter-total');
-    const slider = document.getElementById('ratio-slider');
-    const piPriceInput = document.getElementById('new-product-price-pi');
-    const yerPriceInput = document.getElementById('new-product-price-yer');
+// إغلاق عند النقر خارج النافذة
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('calculator-modal');
+    if (e.target === modal) closeCalculator();
+});
 
-    if (!totalInput || !slider || !piPriceInput || !yerPriceInput) return;
+// ============================================
+// الحساب
+// ============================================
+async function calculateConversion() {
+    const usdInput = document.getElementById('calc-usd');
+    const usd = parseFloat(usdInput?.value);
+    const refRadio = document.querySelector('input[name="calc-ref"]:checked');
 
-    const total = parseFloat(totalInput.value) || 0;
-    if (total <= 0) {
-        alert('⚠️ أدخل السعر الإجمالي أولاً');
+    if (!usd || usd <= 0) {
+        alert('⚠️ أدخل قيمة المنتج بالدولار أولاً');
+        return;
+    }
+    if (!refRadio) {
+        alert('⚠️ اختر القيمة المرجعية (GCV أو AMM)');
         return;
     }
 
-    const ratio = parseInt(slider.value) / 100;
-    const piPart = total * ratio;
-    const yerPart = total * (1 - ratio);
-
-    piPriceInput.value = piPart.toFixed(4);
-    yerPriceInput.value = yerPart.toFixed(0);
-
-    const ref = getReferenceValue();
-    let refInfo = '';
-    if (ref.source !== 'none') {
-        refInfo = `\n\nالقيمة المرجعية: ${ref.value > 0 ? ref.value.toLocaleString() + ' USD' : 'Pi DEX AMM'}`;
-    }
-
-    alert(`✅ تم تطبيق التقسيم:\n${piPart.toFixed(4)} Pi\n${yerPart.toFixed(0)} YER${refInfo}`);
-
-    piPriceInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-/**
- * التحويل عبر API
- */
-async function convertWithAPI(totalPrice, currency, piRatio) {
     try {
-        const ref = getReferenceValue();
         const res = await fetch('/api/converter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                totalPrice: parseFloat(totalPrice),
-                currency: currency || 'USD',
-                piRatio: parseFloat(piRatio) || 0.5,
-                referenceSource: ref.source,
-                referenceValue: ref.value
+                productUSD: usd,
+                referenceSource: refRadio.value
             })
         });
 
         const data = await res.json();
-        if (data.success) return data.split;
-        throw new Error(data.error || 'فشل التحويل');
-    } catch (e) {
-        console.error('Converter API error:', e);
-        return null;
+        if (!data.success) throw new Error(data.error || 'فشل الحساب');
+
+        lastCalculation = data;
+
+        // عرض النتائج
+        document.getElementById('calc-result-pi').textContent =
+            formatAmount(data.split.piAmount) + ' Pi';
+        document.getElementById('calc-result-yer').textContent =
+            formatAmount(data.split.yerAmount) + ' YER';
+
+        const note = document.getElementById('calc-result-note');
+        if (data.mode === 'GCV') {
+            note.innerHTML = `💎 GCV Mode: 15% Pi (أرباح) + 85% YER (رأس المال)`;
+        } else {
+            note.innerHTML = `📈 AMM Mode: 50% Pi + 50% YER (توزيع إجباري)`;
+        }
+
+        document.getElementById('calc-results').style.display = 'block';
+
+    } catch (err) {
+        console.error('Calculator error:', err);
+        alert('❌ فشل الحساب: ' + err.message);
     }
 }
 
-/**
- * تهيئة المحول عند البدء
- */
-document.addEventListener('DOMContentLoaded', () => {
-    const totalInput = document.getElementById('converter-total');
-    if (totalInput) totalInput.addEventListener('input', updateConverter);
-
-    const sourceSelect = document.getElementById('reference-source');
-    if (sourceSelect) sourceSelect.addEventListener('change', updateReferenceDisplay);
-
-    const customValueInput = document.getElementById('reference-custom-value');
-    if (customValueInput) customValueInput.addEventListener('input', updateReferenceDisplay);
-
-    // إضافة زر "تطبيق على المنتج"
-    const converterCard = document.getElementById('converter-result')?.closest('.card');
-    if (converterCard && !converterCard.querySelector('.apply-converter-btn')) {
-        const btn = document.createElement('button');
-        btn.className = 'btn-secondary apply-converter-btn';
-        btn.style.marginTop = '12px';
-        btn.textContent = '📋 تطبيق على المنتج الجديد';
-        btn.onclick = applyConverterToProduct;
-        converterCard.appendChild(btn);
+// ============================================
+// تطبيق على المنتج
+// ============================================
+function applyCalculatorToProduct() {
+    if (!lastCalculation) {
+        alert('⚠️ احسب أولاً');
+        return;
     }
 
-    updateConverter();
-    updateReferenceDisplay();
+    const usdInput = document.getElementById('new-product-price-usd');
+    const piInput = document.getElementById('new-product-price-pi');
+    const yerInput = document.getElementById('new-product-price-yer');
+    const refSource = document.getElementById('new-product-reference-source');
+    const ratioField = document.getElementById('new-product-pi-ratio');
+
+    if (usdInput) usdInput.value = lastCalculation.original.productUSD;
+    if (piInput) piInput.value = lastCalculation.split.piAmount;
+    if (yerInput) yerInput.value = lastCalculation.split.yerAmount;
+    if (refSource) refSource.value = lastCalculation.mode === 'GCV' ? 'gcvalue' : 'dex';
+    if (ratioField) ratioField.value = lastCalculation.split.piPercentage;
+
+    closeCalculator();
+
+    // التمرير إلى نموذج المنتج
+    setTimeout(() => {
+        if (usdInput) usdInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+
+    alert('✅ تم تطبيق القيم على نموذج المنتج');
+}
+
+// ============================================
+// أدوات مساعدة
+// ============================================
+function formatAmount(num) {
+    if (num === 0) return '0';
+    if (num >= 1000000) return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
+    if (num >= 1) return num.toFixed(4);
+    if (num >= 0.001) return num.toFixed(6);
+    return num.toFixed(10);
+}
+
+// ============================================
+// إظهار زر الحاسبة بعد تسجيل الدخول
+// ============================================
+function showCalculatorFAB() {
+    const fab = document.getElementById('calculator-fab');
+    if (fab) fab.style.display = 'flex';
+}
+
+function hideCalculatorFAB() {
+    const fab = document.getElementById('calculator-fab');
+    if (fab) fab.style.display = 'none';
+}
+
+// عند تسجيل الدخول
+document.addEventListener('DOMContentLoaded', () => {
+    // سيتم استدعاء showCalculatorFAB من auth.js عند النجاح
 });
