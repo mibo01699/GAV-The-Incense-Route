@@ -1,12 +1,11 @@
 {
   "name": "gav-the-incense-route",
   "version": "1.0.0",
-  "description": "GAV The Incense Route - Hybrid Pi/YER Payment Gateway",
-  "main": "api/index.js",
+  "description": "GAV - The Incense Route | E-Commerce & Cross-Border Trade powered by BIGISH-YER",
+  "main": "index.js",
   "scripts": {
-    "start": "node api/index.js",
-    "dev": "nodemon api/index.js",
-    "test": "echo \"No tests yet\" && exit 0"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "engines": {
     "node": "20.x"
