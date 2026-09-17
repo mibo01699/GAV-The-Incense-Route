@@ -1,13 +1,53 @@
 // ============================================
-// GAV - The Incense Route | Authentication
+// GAV - The Incense Route | Authentication + Navigation
 // ============================================
 
 let currentUser = null;
 const BIGISH_YER_URL = 'https://bigish-yer.vercel.app';
 
-/**
- * تسجيل الدخول عبر Pi
- */
+// ============================================
+// دالة التنقل بين الصفحات (مهمة جداً)
+// ============================================
+function showPage(pageName) {
+    try {
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+
+        const targetPage = document.getElementById('page-' + pageName);
+        if (targetPage) {
+            targetPage.classList.add('active');
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.page === pageName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // تحميل بيانات خاصة بكل صفحة
+        if (pageName === 'home') {
+            if (typeof loadBalanceFromBIGISHYER === 'function') loadBalanceFromBIGISHYER();
+            if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
+        }
+        if (pageName === 'products' && typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
+        if (pageName === 'cart' && typeof renderCart === 'function') renderCart();
+        if (pageName === 'orders' && typeof refreshOrders === 'function') refreshOrders();
+        if (pageName === 'merchant') {
+            if (typeof loadMerchantStats === 'function') loadMerchantStats();
+            if (typeof loadMyProducts === 'function') loadMyProducts();
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+        console.error('showPage error:', err);
+    }
+}
+
+// ============================================
+// تسجيل الدخول
+// ============================================
 async function loginWithPi() {
     const btn = document.getElementById('login-btn');
     const errorDiv = document.getElementById('login-error');
@@ -17,7 +57,6 @@ async function loginWithPi() {
     errorDiv.style.display = 'none';
 
     try {
-        // المصادقة عبر Pi SDK
         const auth = await Pi.authenticate(
             ['username', 'payments', 'wallet_address'],
             onIncompletePaymentFound
@@ -25,7 +64,6 @@ async function loginWithPi() {
 
         console.log("✅ Pi Auth success:", auth);
 
-        // التحقق من التوكن عبر BIGISH-YER
         const response = await fetch(`${BIGISH_YER_URL}/api/auth`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -38,7 +76,6 @@ async function loginWithPi() {
             throw new Error(data.error || 'فشل التحقق من التوكن');
         }
 
-        // حفظ بيانات المستخدم
         currentUser = {
             uid: data.user.uid,
             username: data.user.username,
@@ -62,9 +99,9 @@ async function loginWithPi() {
     }
 }
 
-/**
- * معالجة نجاح تسجيل الدخول
- */
+// ============================================
+// معالجة نجاح تسجيل الدخول
+// ============================================
 function onLoginSuccess(user) {
     document.getElementById('username').textContent = user.username;
     document.getElementById('logout-btn').style.display = 'inline-block';
@@ -74,15 +111,16 @@ function onLoginSuccess(user) {
     document.getElementById('page-login').classList.remove('active');
     document.getElementById('bottom-nav').style.display = 'flex';
 
+    // الآن showPage موجودة، لن يفشل الكود
     showPage('home');
-    loadBalanceFromBIGISHYER();
-    loadCategories();
-    loadFeaturedProducts();
+
+    // تحميل البيانات
+    if (typeof loadCategories === 'function') loadCategories();
 }
 
-/**
- * معالجة الدفعات غير المكتملة
- */
+// ============================================
+// معالجة الدفعات غير المكتملة
+// ============================================
 function onIncompletePaymentFound(payment) {
     console.log("⚠️ Incomplete payment found:", payment);
     fetch(`${BIGISH_YER_URL}/api/payments/complete`, {
@@ -96,9 +134,9 @@ function onIncompletePaymentFound(payment) {
     }).catch(err => console.error("Complete payment error:", err));
 }
 
-/**
- * تسجيل الخروج
- */
+// ============================================
+// تسجيل الخروج
+// ============================================
 function logout() {
     if (confirm('هل تريد تسجيل الخروج؟')) {
         localStorage.removeItem('gav_user');
@@ -107,9 +145,9 @@ function logout() {
     }
 }
 
-/**
- * استعادة الجلسة عند إعادة تحميل الصفحة
- */
+// ============================================
+// استعادة الجلسة
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     const savedUser = localStorage.getItem('gav_user');
     if (savedUser) {
