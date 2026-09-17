@@ -1,51 +1,227 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GAV - The Incense Route</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <style>
-    :root { --primary: #1a4d2e; --primary-light: #2d7a4a; --gold: #d4af37; --bg: #f5f7fa; }
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-    body { background: var(--bg); direction: rtl; min-height: 100vh; }
-    .top-bar { background: var(--primary); color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 1.2rem; font-weight: bold; }
-    .network-badge { font-size: 0.85rem; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 12px; }
-    .container { max-width: 600px; margin: 16px auto; padding: 0 12px; }
-    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); margin-bottom: 16px; }
-    .card h1, .card h2 { color: var(--primary); margin-bottom: 12px; }
-    button { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border: none; padding: 14px 24px; border-radius: 30px; font-size: 1.1rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 12px; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .error { color: #e74c3c; margin-top: 10px; padding: 8px; background: #fdecea; border-radius: 6px; display: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAV - The Incense Route</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="top-bar">
-    <div class="logo">🛣️ GAV - The Incense Route</div>
-    <div class="network-badge">Testnet</div>
-  </header>
-  <main class="container">
-    <section id="login-section" class="card">
-      <h1>GAV - طريق البخور</h1>
-      <p>بروتوكول لامركزي لسلاسل التوريد والتتبع</p>
-      <button id="login-btn">🚀 تسجيل الدخول بحساب Pi</button>
-      <div id="login-error" class="error"></div>
+
+<header class="top-bar">
+    <div class="logo">🛣️ GAV</div>
+    <div class="network-badge">
+        <span class="dot testnet"></span> Testnet
+    </div>
+    <div id="user-info">
+        <span id="username">زائر</span>
+        <button id="logout-btn" style="display:none;" onclick="logout()">خروج</button>
+    </div>
+</header>
+
+<nav class="bottom-nav" id="bottom-nav" style="display:none;">
+    <button class="nav-btn active" data-page="home" onclick="showPage('home')">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">الرئيسية</span>
+    </button>
+    <button class="nav-btn" data-page="products" onclick="showPage('products')">
+        <span class="nav-icon">📦</span>
+        <span class="nav-label">المنتجات</span>
+    </button>
+    <button class="nav-btn" data-page="cart" onclick="showPage('cart')">
+        <span class="nav-icon">🛒</span>
+        <span class="nav-label">السلة</span>
+    </button>
+    <button class="nav-btn" data-page="orders" onclick="showPage('orders')">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">طلباتي</span>
+    </button>
+    <button class="nav-btn" data-page="merchant" onclick="showPage('merchant')">
+        <span class="nav-icon">🏪</span>
+        <span class="nav-label">التاجر</span>
+    </button>
+</nav>
+
+<main class="container">
+
+    <section id="page-login" class="page active">
+        <div class="card">
+            <h1>🛣️ GAV - طريق البخور</h1>
+            <p class="subtitle">منصة التجارة العابرة للحدود</p>
+            <p class="description">تبادل السلع التراثية والبخور والعطور عبر منظومة Arabian Eagle</p>
+            <button id="login-btn" class="btn-primary" onclick="loginWithPi()">
+                🚀 تسجيل الدخول بحساب Pi
+            </button>
+            <div id="login-error" class="error" style="display:none;"></div>
+            <div class="status-note">
+                <small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small>
+            </div>
+        </div>
     </section>
-    <section id="dashboard-section" style="display:none;">
-      <div class="card">
-        <h2>مرحباً، <span id="user-name"></span></h2>
-        <p>معرف Pi: <span id="user-id"></span></p>
-      </div>
-      <div class="card">
-        <h2>📦 الخدمات</h2>
-        <button onclick="alert('ميزة قيد التطوير')">نقاط البيع (POS)</button>
-        <button onclick="alert('ميزة قيد التطوير')">تتبع البضائع</button>
-        <button onclick="alert('ميزة قيد التطوير')">الدفع الهجين</button>
-      </div>
+
+    <section id="page-home" class="page">
+        <div class="card user-card">
+            <h2>مرحباً، <span id="user-name"></span></h2>
+            <p class="user-id">معرف Pi: <span id="user-id"></span></p>
+        </div>
+
+        <div class="card">
+            <h3>💰 محفظتك</h3>
+            <div class="balance-grid">
+                <div class="balance-item">
+                    <span class="label">Pi</span>
+                    <span class="value" id="pi-balance">0.00</span>
+                </div>
+                <div class="balance-item">
+                    <span class="label">YER</span>
+                    <span class="value" id="yer-balance">0.00</span>
+                </div>
+            </div>
+            <p class="subtitle" style="margin-top:12px; text-align:center;">
+                <small>الدفع يتم عبر محفظة BIGISH-YER</small>
+            </p>
+        </div>
+
+        <div class="card">
+            <h3>🌿 تصفح الأقسام</h3>
+            <div id="categories-grid" class="categories-grid">
+                <!-- تُعبّأ من JavaScript -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🔥 أحدث المنتجات</h3>
+            <div id="featured-products" class="products-grid">
+                <!-- تُعبّأ من JavaScript -->
+            </div>
+        </div>
     </section>
-  </main>
-  <script src="js/pi-config.js"></script>
-  <script src="js/auth.js"></script>
+
+    <section id="page-products" class="page">
+        <div class="card">
+            <h3>📦 جميع المنتجات</h3>
+            <input type="text" id="search-input" placeholder="ابحث عن منتج..." oninput="filterProducts()">
+            <div id="filter-buttons" class="filter-buttons">
+                <button class="filter-btn active" onclick="setCategory('all')">الكل</button>
+                <!-- تُعبّأ من JavaScript -->
+            </div>
+            <div id="products-list" class="products-grid">
+                <!-- تُعبّأ من JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <section id="page-cart" class="page">
+        <div class="card">
+            <h3>🛒 سلة التسوق</h3>
+            <div id="cart-items">
+                <p class="empty-state">السلة فارغة حالياً.</p>
+            </div>
+            <div id="cart-summary" style="display:none;">
+                <div class="cart-total">
+                    <span>الإجمالي:</span>
+                    <strong id="cart-total-amount">0</strong>
+                </div>
+                <button class="btn-primary" onclick="checkout()" style="margin-top:12px;">
+                    💳 إتمام الدفع
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-orders" class="page">
+        <div class="card">
+            <h3>📋 طلباتي</h3>
+            <div id="orders-list">
+                <p class="empty-state">لا توجد طلبات بعد.</p>
+            </div>
+            <button class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">
+                🔄 تحديث
+            </button>
+        </div>
+    </section>
+
+    <section id="page-merchant" class="page">
+        <div class="card">
+            <h3>🏪 لوحة التاجر</h3>
+            <div id="merchant-stats" class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">المنتجات</span>
+                    <span class="stat-value" id="stat-products">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">الطلبات</span>
+                    <span class="stat-value" id="stat-orders">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pi مكتسب</span>
+                    <span class="stat-value" id="stat-pi">0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">YER مكتسب</span>
+                    <span class="stat-value" id="stat-yer">0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>➕ إضافة منتج جديد</h3>
+            <input type="text" id="new-product-name" placeholder="اسم المنتج">
+            <textarea id="new-product-description" placeholder="وصف المنتج" style="margin-top:8px;"></textarea>
+            <select id="new-product-category" style="margin-top:8px;">
+                <option value="incense">البخور والعطور</option>
+                <option value="textiles">المنسوجات</option>
+                <option value="spices">التوابل</option>
+                <option value="handicrafts">الحرف اليدوية</option>
+                <option value="coffee">البن والقهوة</option>
+                <option value="honey">العسل الطبيعي</option>
+            </select>
+            <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi" step="0.01" style="margin-top:8px;">
+            <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER" step="1" style="margin-top:8px;">
+            <button class="btn-primary" onclick="addProduct()" style="margin-top:12px;">
+                ➕ إضافة المنتج
+            </button>
+        </div>
+
+        <div class="card">
+            <h3>🔄 المحول الذكي</h3>
+            <p class="subtitle">وزّع السعر بين Pi و YER</p>
+            <input type="number" id="converter-total" placeholder="السعر الإجمالي" step="0.01">
+            <div class="slider-container" style="margin-top:12px;">
+                <label>نسبة Pi: <span id="ratio-display">50%</span></label>
+                <input type="range" id="ratio-slider" min="0" max="100" value="50" oninput="updateConverter()">
+            </div>
+            <div id="converter-result" class="converter-result" style="margin-top:12px;">
+                <div class="converter-row">
+                    <span>Pi:</span>
+                    <strong id="converter-pi">0.00</strong>
+                </div>
+                <div class="converter-row">
+                    <span>YER:</span>
+                    <strong id="converter-yer">0.00</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📦 منتجاتي</h3>
+            <div id="my-products-list">
+                <p class="empty-state">لا توجد منتجات بعد.</p>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script src="js/pi-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/products.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/payment.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/merchant.js"></script>
+<script src="js/converter.js"></script>
+
 </body>
 </html>
