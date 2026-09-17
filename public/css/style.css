@@ -1,8 +1,672 @@
 /* ============================================
+   GAV - The Incense Route | Complete Stylesheet v3
+   ============================================ */
+
+:root {
+    --primary: #1a4d2e;
+    --primary-light: #2d7a4a;
+    --primary-dark: #0d2a18;
+    --gold: #d4af37;
+    --gold-light: #e8c158;
+    --blue: #4a90e2;
+    --red: #e74c3c;
+    --bg: #f5f7fa;
+    --bg-card: #ffffff;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --border: #e0e6ed;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.12);
+    --radius: 14px;
+    --radius-sm: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    min-height: 100vh;
+    padding-bottom: 80px;
+    line-height: 1.6;
+}
+
+/* ========== CRITICAL: Page Visibility ========== */
+.page {
+    display: none !important;
+}
+.page.active {
+    display: block !important;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== Top Bar ========== */
+.top-bar {
+    background: var(--primary);
+    color: white;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.network-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+
+.dot.testnet { background: #f5c542; }
+.dot.mainnet { background: #2ecc71; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85rem;
+}
+
+#logout-btn {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: 0.2s;
+}
+
+#logout-btn:hover { background: #c0392b; }
+
+/* ========== Container ========== */
+.container {
+    max-width: 700px;
+    margin: 16px auto;
+    padding: 0 12px;
+}
+
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    transition: 0.2s;
+}
+
+.card:hover { box-shadow: var(--shadow-hover); }
+
+.card h1 {
+    color: var(--primary);
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.card h2 {
+    color: var(--primary);
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+}
+
+.card h3 {
+    color: var(--primary-light);
+    font-size: 1.05rem;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--gold);
+    display: inline-block;
+}
+
+.subtitle {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.description {
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    line-height: 1.7;
+}
+
+/* ========== Buttons ========== */
+button {
+    font-family: inherit;
+    cursor: pointer;
+    transition: 0.2s;
+    border: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    padding: 14px 22px;
+    border-radius: 30px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(26, 77, 46, 0.3);
+    display: block;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(26, 77, 46, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    width: 100%;
+}
+
+.btn-secondary:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--red);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    width: 100%;
+}
+
+.btn-small {
+    background: var(--primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    width: auto;
+}
+
+/* ========== Inputs ========== */
+select, input[type="text"], input[type="number"], input[type="email"], input[type="tel"], textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.95rem;
+    background: white;
+    color: var(--text);
+}
+
+select:focus, input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(26, 77, 46, 0.1);
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+input[readonly] {
+    background: #f0f7f3;
+    color: #1a4d2e;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    cursor: not-allowed;
+}
+
+/* ========== User Card ========== */
+.user-card {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    border-radius: var(--radius);
+}
+
+.user-card h2, .user-card p { color: white; }
+
+.user-id {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    word-break: break-all;
+    font-family: monospace;
+}
+
+/* ========== Balance ========== */
+.balance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.balance-item {
+    background: white;
+    padding: 18px 12px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border);
+}
+
+.balance-item .label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-bottom: 6px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.balance-item .value {
+    display: block;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--primary);
+    font-family: 'Courier New', monospace;
+}
+
+/* ========== Categories ========== */
+.categories-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.category-card {
+    background: var(--bg);
+    padding: 16px 8px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+    border: 1px solid var(--border);
+}
+
+.category-card:hover {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.category-icon {
+    font-size: 1.8rem;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.category-name {
+    font-size: 0.75rem;
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* ========== Products ========== */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.product-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    transition: 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.product-image {
+    width: 100%;
+    height: 100px;
+    background: var(--bg);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    overflow: hidden;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.3;
+}
+
+.product-merchant {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    margin-bottom: 6px;
+}
+
+.product-price {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 2px;
+}
+
+.price-label {
+    color: var(--text-light);
+}
+
+.price-value {
+    font-weight: 700;
+    color: var(--primary);
+    font-family: 'Courier New', monospace;
+}
+
+.product-actions {
+    margin-top: 8px;
+}
+
+/* ========== Filter Buttons ========== */
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px 0;
+    margin: 10px 0;
+    scrollbar-width: none;
+}
+
+.filter-buttons::-webkit-scrollbar { display: none; }
+
+.filter-btn {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: 0.2s;
+}
+
+.filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* ========== Cart ========== */
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    border-right: 3px solid var(--gold);
+}
+
+.cart-item-info { flex: 1; }
+.cart-item-name { font-weight: 700; font-size: 0.9rem; }
+.cart-item-price {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    font-family: monospace;
+    margin-top: 2px;
+}
+
+.cart-item-remove {
+    background: var(--red);
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.cart-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    margin-top: 12px;
+    border: 2px solid var(--gold);
+    font-size: 1.05rem;
+}
+
+.cart-total strong {
+    color: var(--primary);
+    font-family: monospace;
+    font-size: 1.15rem;
+}
+
+/* ========== Orders ========== */
+.order-item {
+    padding: 14px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    border-right: 3px solid var(--primary);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.order-id {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    font-family: monospace;
+}
+
+.order-status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.order-status.PAID { background: #d4edda; color: #155724; }
+
+.order-product {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.order-amount {
+    font-size: 0.85rem;
+    color: var(--primary);
+    font-family: monospace;
+}
+
+/* ========== Stats ========== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.stat-item {
+    background: var(--bg);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border-right: 3px solid var(--primary);
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-family: 'Courier New', monospace;
+}
+
+/* ========== Bottom Nav ========== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px 0;
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+    z-index: 99;
+    border-top: 1px solid var(--border);
+}
+
+.nav-btn {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    color: var(--text-light);
+    font-size: 0.68rem;
+    flex: 1;
+    transition: 0.2s;
+}
+
+.nav-btn.active {
+    color: var(--primary);
+}
+
+.nav-btn.active .nav-icon {
+    transform: scale(1.15);
+}
+
+.nav-icon {
+    font-size: 1.25rem;
+    transition: 0.2s;
+}
+
+.nav-label {
+    font-weight: 600;
+}
+
+/* ========== Error & Empty ========== */
+.error {
+    color: var(--red);
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #fdecea;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    border-right: 3px solid var(--red);
+}
+
+.empty-state {
+    text-align: center;
+    color: var(--text-light);
+    padding: 30px 0;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+.status-note {
+    margin-top: 16px;
+    text-align: center;
+    color: var(--text-light);
+}
+
+/* ============================================
    Floating Calculator (FAB) + Modal
    ============================================ */
 
-/* الزر العائم */
 .calculator-fab {
     position: fixed;
     bottom: 90px;
@@ -38,7 +702,6 @@
     50% { box-shadow: 0 6px 30px rgba(212, 175, 55, 0.7); }
 }
 
-/* النافذة المنبثقة */
 .calculator-modal {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -47,7 +710,6 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    animation: fadeIn 0.2s ease;
 }
 
 .calculator-sheet {
@@ -107,14 +769,9 @@
     color: white;
 }
 
-.calculator-body {
-    padding: 20px;
-}
+.calculator-body { padding: 20px; }
 
-/* الحقول */
-.calc-field {
-    margin-bottom: 20px;
-}
+.calc-field { margin-bottom: 20px; }
 
 .calc-field label {
     display: block;
@@ -124,7 +781,6 @@
     font-size: 0.95rem;
 }
 
-/* خيارات القيمة المرجعية */
 .calc-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -187,7 +843,6 @@
     border-radius: 10px;
 }
 
-/* نتائج الحساب */
 .calc-result-card {
     background: linear-gradient(135deg, #f0f7f3, #e8f3ed);
     border-radius: 12px;
@@ -203,9 +858,7 @@
     border-bottom: 1px solid rgba(212, 175, 55, 0.3);
 }
 
-.calc-result-row:last-of-type {
-    border-bottom: none;
-}
+.calc-result-row:last-of-type { border-bottom: none; }
 
 .calc-result-label {
     font-weight: 700;
@@ -230,7 +883,6 @@
     text-align: center;
 }
 
-/* تلميح داخل نموذج المنتج */
 .product-calc-hint {
     margin-top: 8px;
     padding: 10px;
@@ -241,17 +893,19 @@
     color: #8b6914;
 }
 
-/* الأزرار readonly */
-input[readonly] {
-    background: #f0f7f3;
-    color: #1a4d2e;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-    cursor: not-allowed;
-}
-
-/* تجاوب */
+/* ========== Responsive ========== */
 @media (max-width: 480px) {
+    .top-bar { padding: 10px 12px; }
+    .logo { font-size: 1rem; }
+    #user-info { font-size: 0.75rem; }
+    .container { padding: 0 8px; }
+    .card { padding: 16px; }
+    .balance-item .value { font-size: 1.3rem; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .categories-grid { grid-template-columns: repeat(2, 1fr); }
+    .products-grid { grid-template-columns: 1fr; }
+    .nav-label { font-size: 0.62rem; }
+    .nav-icon { font-size: 1.1rem; }
     .calculator-fab {
         width: 55px;
         height: 55px;
@@ -259,7 +913,5 @@ input[readonly] {
         bottom: 85px;
         left: 15px;
     }
-    .calc-options {
-        grid-template-columns: 1fr;
-    }
+    .calc-options { grid-template-columns: 1fr; }
 }
