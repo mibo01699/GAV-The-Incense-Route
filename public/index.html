@@ -45,6 +45,7 @@
 
 <main class="container">
 
+    <!-- ========== صفحة تسجيل الدخول ========== -->
     <section id="page-login" class="page active">
         <div class="card">
             <h1>🛣️ GAV - طريق البخور</h1>
@@ -60,6 +61,7 @@
         </div>
     </section>
 
+    <!-- ========== الصفحة الرئيسية ========== -->
     <section id="page-home" class="page">
         <div class="card user-card">
             <h2>مرحباً، <span id="user-name"></span></h2>
@@ -85,33 +87,26 @@
 
         <div class="card">
             <h3>🌿 تصفح الأقسام</h3>
-            <div id="categories-grid" class="categories-grid">
-                <!-- تُعبّأ من JavaScript -->
-            </div>
+            <div id="categories-grid" class="categories-grid"></div>
         </div>
 
         <div class="card">
             <h3>🔥 أحدث المنتجات</h3>
-            <div id="featured-products" class="products-grid">
-                <!-- تُعبّأ من JavaScript -->
-            </div>
+            <div id="featured-products" class="products-grid"></div>
         </div>
     </section>
 
+    <!-- ========== صفحة المنتجات ========== -->
     <section id="page-products" class="page">
         <div class="card">
             <h3>📦 جميع المنتجات</h3>
             <input type="text" id="search-input" placeholder="ابحث عن منتج..." oninput="filterProducts()">
-            <div id="filter-buttons" class="filter-buttons">
-                <button class="filter-btn active" onclick="setCategory('all')">الكل</button>
-                <!-- تُعبّأ من JavaScript -->
-            </div>
-            <div id="products-list" class="products-grid">
-                <!-- تُعبّأ من JavaScript -->
-            </div>
+            <div id="filter-buttons" class="filter-buttons"></div>
+            <div id="products-list" class="products-grid"></div>
         </div>
     </section>
 
+    <!-- ========== صفحة السلة ========== -->
     <section id="page-cart" class="page">
         <div class="card">
             <h3>🛒 سلة التسوق</h3>
@@ -130,6 +125,7 @@
         </div>
     </section>
 
+    <!-- ========== صفحة الطلبات ========== -->
     <section id="page-orders" class="page">
         <div class="card">
             <h3>📋 طلباتي</h3>
@@ -142,6 +138,7 @@
         </div>
     </section>
 
+    <!-- ========== صفحة التاجر ========== -->
     <section id="page-merchant" class="page">
         <div class="card">
             <h3>🏪 لوحة التاجر</h3>
@@ -165,17 +162,55 @@
             </div>
         </div>
 
+        <!-- القيمة المرجعية -->
+        <div class="card">
+            <h3>📊 القيمة المرجعية للـ Pi</h3>
+            <p class="subtitle">اختر مصدر القيمة المرجعية لمنتجاتك</p>
+
+            <select id="reference-source" onchange="updateReferenceDisplay()">
+                <option value="none">بدون قيمة مرجعية</option>
+                <option value="dex">السعر الحي من Pi DEX AMM</option>
+                <option value="gcvalue">القيمة المرجعية المقترحة (314,159)</option>
+                <option value="custom">قيمة مخصصة</option>
+            </select>
+
+            <div id="reference-custom-group" style="display:none;margin-top:8px;">
+                <input type="number" id="reference-custom-value" placeholder="أدخل القيمة المخصصة" step="0.01">
+            </div>
+
+            <div id="reference-display" style="font-size:0.85rem;margin-top:12px;padding:10px;background:#f5f7fa;border-radius:8px;"></div>
+        </div>
+
+        <!-- إضافة منتج -->
         <div class="card">
             <h3>➕ إضافة منتج جديد</h3>
             <input type="text" id="new-product-name" placeholder="اسم المنتج">
             <textarea id="new-product-description" placeholder="وصف المنتج" style="margin-top:8px;"></textarea>
             <select id="new-product-category" style="margin-top:8px;">
                 <option value="incense">البخور والعطور</option>
+                <option value="luban">البان</option>
+                <option value="dates">التمور</option>
                 <option value="textiles">المنسوجات</option>
-                <option value="spices">التوابل</option>
                 <option value="handicrafts">الحرف اليدوية</option>
+                <option value="food">المواد الغذائية</option>
+                <option value="vegetables">الخضروات والفواكه</option>
+                <option value="meat">اللحوم</option>
+                <option value="fish">الأسماك</option>
+                <option value="beverages">المشروبات</option>
                 <option value="coffee">البن والقهوة</option>
                 <option value="honey">العسل الطبيعي</option>
+                <option value="spices">التوابل</option>
+                <option value="gold">الذهب والمجوهرات</option>
+                <option value="silver">الفضيات</option>
+                <option value="clothing">الملابس</option>
+                <option value="accessories">الإكسسوارات</option>
+                <option value="cosmetics">أدوات التجميل</option>
+                <option value="electronics">الأجهزة الإلكترونية</option>
+                <option value="smartphones">الهواتف الذكية</option>
+                <option value="hardware">الخردوات والأدوات</option>
+                <option value="home">مستلزمات المنزل</option>
+                <option value="agriculture">المستلزمات الزراعية</option>
+                <option value="others">أخرى</option>
             </select>
             <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi" step="0.01" style="margin-top:8px;">
             <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER" step="1" style="margin-top:8px;">
@@ -184,14 +219,18 @@
             </button>
         </div>
 
+        <!-- المحول الذكي -->
         <div class="card">
             <h3>🔄 المحول الذكي</h3>
             <p class="subtitle">وزّع السعر بين Pi و YER</p>
+
             <input type="number" id="converter-total" placeholder="السعر الإجمالي" step="0.01">
+
             <div class="slider-container" style="margin-top:12px;">
                 <label>نسبة Pi: <span id="ratio-display">50%</span></label>
                 <input type="range" id="ratio-slider" min="0" max="100" value="50" oninput="updateConverter()">
             </div>
+
             <div id="converter-result" class="converter-result" style="margin-top:12px;">
                 <div class="converter-row">
                     <span>Pi:</span>
