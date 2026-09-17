@@ -23,19 +23,36 @@ const db = {
     orders: [],
     merchants: {},
     categories: [
+        // التراث والمنتجات التقليدية
         { id: 'incense', name: 'البخور والعطور', nameEn: 'Incense & Perfumes', icon: '🌿' },
+        { id: 'luban', name: 'البان', nameEn: 'Luban (Frankincense)', icon: '🪔' },
+        { id: 'dates', name: 'التمور', nameEn: 'Dates', icon: '🌴' },
         { id: 'textiles', name: 'المنسوجات', nameEn: 'Textiles', icon: '🧵' },
-        { id: 'spices', name: 'التوابل', nameEn: 'Spices', icon: '🌶️' },
         { id: 'handicrafts', name: 'الحرف اليدوية', nameEn: 'Handicrafts', icon: '🏺' },
-        { id: 'coffee', name: 'البن والقهوة', nameEn: 'Coffee', icon: '☕' },
-        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Natural Honey', icon: '🍯' },
+        // المواد الغذائية
         { id: 'food', name: 'المواد الغذائية', nameEn: 'Food Products', icon: '🥫' },
         { id: 'vegetables', name: 'الخضروات والفواكه', nameEn: 'Vegetables & Fruits', icon: '🥬' },
-        { id: 'hardware', name: 'الخردوات والأدوات', nameEn: 'Hardware & Tools', icon: '🔧' },
-        { id: 'electronics', name: 'الأجهزة الإلكترونية', nameEn: 'Electronics', icon: '📱' },
+        { id: 'meat', name: 'اللحوم', nameEn: 'Meat', icon: '🥩' },
+        { id: 'fish', name: 'الأسماك', nameEn: 'Fish & Seafood', icon: '🐟' },
+        { id: 'beverages', name: 'المشروبات', nameEn: 'Beverages', icon: '🥤' },
+        { id: 'coffee', name: 'البن والقهوة', nameEn: 'Coffee', icon: '☕' },
+        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Natural Honey', icon: '🍯' },
+        { id: 'spices', name: 'التوابل', nameEn: 'Spices', icon: '🌶️' },
+        // الثمائن
+        { id: 'gold', name: 'الذهب والمجوهرات', nameEn: 'Gold & Jewelry', icon: '💍' },
+        { id: 'silver', name: 'الفضيات', nameEn: 'Silverware', icon: '🥈' },
+        // الأزياء والتجميل
         { id: 'clothing', name: 'الملابس', nameEn: 'Clothing', icon: '👕' },
+        { id: 'accessories', name: 'الإكسسوارات', nameEn: 'Accessories', icon: '👜' },
+        { id: 'cosmetics', name: 'أدوات التجميل', nameEn: 'Cosmetics', icon: '💄' },
+        // الإلكترونيات
+        { id: 'electronics', name: 'الأجهزة الإلكترونية', nameEn: 'Electronics', icon: '📱' },
+        { id: 'smartphones', name: 'الهواتف الذكية', nameEn: 'Smartphones', icon: '📲' },
+        { id: 'hardware', name: 'الخردوات والأدوات', nameEn: 'Hardware & Tools', icon: '🔧' },
+        // المنزل والزراعة
         { id: 'home', name: 'مستلزمات المنزل', nameEn: 'Home Supplies', icon: '🏠' },
         { id: 'agriculture', name: 'المستلزمات الزراعية', nameEn: 'Agricultural Supplies', icon: '🌾' },
+        // متفرقات
         { id: 'others', name: 'أخرى', nameEn: 'Others', icon: '📦' }
     ]
 };
@@ -67,7 +84,7 @@ app.get('/api/health', (req, res) => {
 // API: Categories
 // ============================================
 app.get('/api/categories', (req, res) => {
-    res.json({ success: true, categories: db.categories });
+    res.json({ success: true, categories: db.categories, count: db.categories.length });
 });
 
 // ============================================
@@ -126,9 +143,8 @@ app.post('/api/products', async (req, res) => {
             category: product.category || 'incense',
             pricePi: parseFloat(product.pricePi) || 0,
             priceYER: parseFloat(product.priceYER) || 0,
-            // ✅ القيمة المرجعية الجديدة
             referenceValue: {
-                source: product.referenceSource || 'none',   // 'custom' | 'dex' | 'none'
+                source: product.referenceSource || 'none',
                 customValue: parseFloat(product.referenceCustomValue) || 0,
                 piRatio: parseFloat(product.referencePiRatio) || 50,
                 currency: product.referenceCurrency || 'USD',
@@ -258,7 +274,7 @@ app.get('/api/orders/user/:uid', (req, res) => {
 });
 
 // ============================================
-// API: Smart Converter (مُحدّث مع القيمة المرجعية)
+// API: Smart Converter
 // ============================================
 app.post('/api/converter', (req, res) => {
     const { totalPrice, currency, piRatio, referenceSource, referenceValue } = req.body;
@@ -314,8 +330,9 @@ app.get('/api/merchant/stats/:uid', (req, res) => {
 app.get('/api', (req, res) => {
     res.json({
         message: '🚀 GAV - The Incense Route API',
-        version: '1.1.0',
+        version: '1.2.0',
         integrations: { bigishYer: BIGISH_YER_URL },
+        categories: db.categories.length,
         endpoints: [
             '/api/health', '/api/categories', '/api/products', '/api/products/:id',
             '/api/checkout', '/api/orders/user/:uid', '/api/converter',
@@ -333,6 +350,7 @@ app.use((req, res) => res.status(404).json({ error: 'Not Found' }));
 if (require.main === module) {
     app.listen(PORT, () => {
         console.log(`✅ GAV running on port ${PORT} (${NODE_ENV})`);
+        console.log(`📦 Categories: ${db.categories.length}`);
         console.log(`🔗 Connected to BIGISH-YER: ${BIGISH_YER_URL}`);
     });
 }
