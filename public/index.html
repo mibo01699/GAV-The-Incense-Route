@@ -6,6 +6,12 @@
     <title>GAV - The Incense Route</title>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .page { display: none !important; }
+        .page.active { display: block !important; }
+        #calculator-modal { display: none; }
+        #calculator-fab { display: none; }
+    </style>
 </head>
 <body>
 
@@ -36,17 +42,11 @@
     </button>
 </nav>
 
-<!-- ============================================ -->
-<!-- زر الحاسبة العائم (FAB) -->
-<!-- ============================================ -->
-<button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية" style="display:none;">
+<button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">
     🧮
 </button>
 
-<!-- ============================================ -->
-<!-- نافذة الحاسبة الذكية -->
-<!-- ============================================ -->
-<div id="calculator-modal" class="calculator-modal" style="display:none;">
+<div id="calculator-modal" class="calculator-modal">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>🧮 الحاسبة الذكية</h3>
@@ -54,13 +54,11 @@
         </div>
 
         <div class="calculator-body">
-            <!-- القيمة بالدولار -->
             <div class="calc-field">
-                <label>💵 قيمة المنتج (USD)</label>
+                <label>💵 قيمة المنتج $</label>
                 <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
             </div>
 
-            <!-- القيمة المرجعية -->
             <div class="calc-field">
                 <label>📊 القيمة المرجعية</label>
                 <div class="calc-options">
@@ -69,7 +67,7 @@
                         <div class="calc-option-content">
                             <span class="calc-option-icon">💎</span>
                             <span class="calc-option-title">القيمة المرجعية</span>
-                            <span class="calc-option-desc">314,159 USD</span>
+                            <span class="calc-option-desc">314,159 $</span>
                             <span class="calc-option-split">85% YER + 15% Pi</span>
                         </div>
                     </label>
@@ -85,12 +83,10 @@
                 </div>
             </div>
 
-            <!-- زر الحساب -->
             <button class="btn-primary" onclick="calculateConversion()" style="margin-top:16px;">
                 ⚡ احسب التوزيع
             </button>
 
-            <!-- النتائج -->
             <div id="calc-results" style="display:none;margin-top:16px;">
                 <div class="calc-result-card">
                     <div class="calc-result-row">
@@ -111,9 +107,6 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- المحتوى الرئيسي -->
-<!-- ============================================ -->
 <main class="container">
 
     <section id="page-login" class="page active">
@@ -247,11 +240,7 @@
                 <option value="others">أخرى</option>
             </select>
 
-            <input type="number" id="new-product-price-usd" placeholder="قيمة المنتج بالدولار (USD)" step="0.01" style="margin-top:8px;">
-
-            <div class="product-calc-hint">
-                <small>💡 استخدم الحاسبة العائمة 🧮 لحساب التوزيع تلقائياً</small>
-            </div>
+            <input type="number" id="new-product-price-usd" placeholder="قيمة المنتج $" step="0.01" style="margin-top:8px;">
 
             <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi (تلقائي)" step="0.0000000001" style="margin-top:8px;" readonly>
             <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER (تلقائي)" step="0.01" style="margin-top:8px;" readonly>
@@ -285,10 +274,3 @@
 
 </body>
 </html>
-<!-- ✅ ضمان إخفاء الصفحات غير النشطة -->
-<style>
-    .page { display: none !important; }
-    .page.active { display: block !important; }
-    #calculator-modal { display: none; }
-    #calculator-fab { display: none; }
-</style>
