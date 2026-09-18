@@ -12,6 +12,9 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ============================================
+// Rates
+// ============================================
 const RATES = {
     piGcvUsd: 314159,
     piAmmUsd: 0.63,
@@ -19,6 +22,9 @@ const RATES = {
     priceCapPercent: 15
 };
 
+// ============================================
+// Database
+// ============================================
 const db = {
     products: [],
     orders: [],
@@ -52,6 +58,9 @@ const CATEGORIES = [
     { id: 'others', name: 'أخرى', icon: '📦' }
 ];
 
+// ============================================
+// Helpers
+// ============================================
 async function verifyUser(accessToken) {
     try {
         const res = await fetch(BIGISH_YER_URL + '/api/auth', {
@@ -67,6 +76,9 @@ async function verifyUser(accessToken) {
     }
 }
 
+// ============================================
+// Health & Rates
+// ============================================
 app.get('/api/health', (req, res) => {
     res.json({
         service: 'gav-the-incense-route',
@@ -89,6 +101,9 @@ app.get('/api/categories', (req, res) => {
     res.json({ success: true, categories: CATEGORIES, count: CATEGORIES.length });
 });
 
+// ============================================
+// Products
+// ============================================
 app.get('/api/products', (req, res) => {
     const category = req.query.category;
     const merchantId = req.query.merchantId;
@@ -154,6 +169,9 @@ app.delete('/api/products/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// ============================================
+// Checkout
+// ============================================
 app.post('/api/checkout', async (req, res) => {
     const accessToken = req.body.accessToken;
     const productId = req.body.productId;
@@ -204,6 +222,9 @@ app.get('/api/orders/user/:uid', (req, res) => {
     res.json({ success: true, orders: orders });
 });
 
+// ============================================
+// Converter
+// ============================================
 app.post('/api/converter', (req, res) => {
     const productUSD = parseFloat(req.body.productUSD);
     const referenceSource = req.body.referenceSource;
@@ -244,6 +265,9 @@ app.post('/api/converter', (req, res) => {
     });
 });
 
+// ============================================
+// Merchant Stats
+// ============================================
 app.get('/api/merchant/stats/:uid', (req, res) => {
     const uid = req.params.uid;
     const myProducts = db.products.filter(p => p.merchantId === uid);
@@ -262,12 +286,26 @@ app.get('/api/merchant/stats/:uid', (req, res) => {
     });
 });
 
+// ============================================
+// Festival Routes
+// ============================================
+const setupFestivalRoutes = require('./routes/festivals');
+app.use('/api/festivals', setupFestivalRoutes(db));
+
+// ============================================
+// Root
+// ============================================
 app.get('/api', (req, res) => {
     res.json({
         message: '🚀 GAV API',
         version: '2.0.0',
+        features: {
+            priceCap: '15%',
+            barterFestivals: 'enabled'
+        },
         categories: CATEGORIES.length,
-        products: db.products.length
+        products: db.products.length,
+        festivals: db.festivals.length
     });
 });
 
