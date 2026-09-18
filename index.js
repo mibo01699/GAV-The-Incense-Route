@@ -10,6 +10,9 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ============================================
+// Rates
+// ============================================
 const RATES = {
     piGcvUsd: 314159,
     piAmmUsd: 0.63,
@@ -17,8 +20,18 @@ const RATES = {
     priceCapPercent: 15
 };
 
-const db = { products: [], orders: [], festivals: [] };
+// ============================================
+// Database
+// ============================================
+const db = {
+    products: [],
+    orders: [],
+    festivals: []
+};
 
+// ============================================
+// Categories (34 قسماً)
+// ============================================
 const CATEGORIES = [
     { id: 'incense', name: 'البخور والعطور', icon: '🌿' },
     { id: 'luban', name: 'البان', icon: '🪔' },
@@ -43,9 +56,22 @@ const CATEGORIES = [
     { id: 'hardware', name: 'الخردوات والأدوات', icon: '🔧' },
     { id: 'home', name: 'مستلزمات المنزل', icon: '🏠' },
     { id: 'agriculture', name: 'المستلزمات الزراعية', icon: '🌾' },
+    { id: 'medicines', name: 'الأدوية', icon: '💊' },
+    { id: 'supplements', name: 'المكملات الغذائية', icon: '🧴' },
+    { id: 'sanitary', name: 'الأدوات الصحية', icon: '🚿' },
+    { id: 'constructionTools', name: 'أدوات البناء', icon: '🔨' },
+    { id: 'constructionMaterials', name: 'مواد البناء', icon: '🧱' },
+    { id: 'electricalTools', name: 'أدوات الكهرباء', icon: '⚡' },
+    { id: 'plumbingTools', name: 'أدوات السباكة', icon: '🔩' },
+    { id: 'tiles', name: 'البلاط', icon: '🟫' },
+    { id: 'ceramics', name: 'السيراميك', icon: '🔲' },
+    { id: 'vehicles', name: 'المركبات', icon: '🚗' },
     { id: 'others', name: 'أخرى', icon: '📦' }
 ];
 
+// ============================================
+// Helpers
+// ============================================
 async function verifyUser(accessToken) {
     try {
         const res = await fetch(BIGISH_YER_URL + '/api/auth', {
@@ -61,7 +87,9 @@ async function verifyUser(accessToken) {
     }
 }
 
-// Health
+// ============================================
+// Health & Rates & Categories
+// ============================================
 app.get('/api/health', function(req, res) {
     res.json({
         service: 'gav-the-incense-route',
@@ -84,11 +112,17 @@ app.get('/api/categories', function(req, res) {
     res.json({ success: true, categories: CATEGORIES, count: CATEGORIES.length });
 });
 
+// ============================================
 // Products
+// ============================================
 app.get('/api/products', function(req, res) {
     let filtered = db.products.slice();
-    if (req.query.category) filtered = filtered.filter(function(p) { return p.category === req.query.category; });
-    if (req.query.merchantId) filtered = filtered.filter(function(p) { return p.merchantId === req.query.merchantId; });
+    if (req.query.category) {
+        filtered = filtered.filter(function(p) { return p.category === req.query.category; });
+    }
+    if (req.query.merchantId) {
+        filtered = filtered.filter(function(p) { return p.merchantId === req.query.merchantId; });
+    }
     res.json({ success: true, products: filtered, count: filtered.length });
 });
 
@@ -118,7 +152,10 @@ app.post('/api/products', async function(req, res) {
         priceUSD: parseFloat(product.priceUSD) || 0,
         pricePi: parseFloat(product.pricePi) || 0,
         priceYER: parseFloat(product.priceYER) || 0,
-        referenceValue: { source: product.referenceSource || 'dex', piRatio: parseFloat(product.referencePiRatio) || 50 },
+        referenceValue: {
+            source: product.referenceSource || 'dex',
+            piRatio: parseFloat(product.referencePiRatio) || 50
+        },
         stock: parseInt(product.stock) || 1,
         createdAt: new Date().toISOString(),
         status: 'ACTIVE'
@@ -145,7 +182,9 @@ app.delete('/api/products/:id', async function(req, res) {
     res.json({ success: true });
 });
 
+// ============================================
 // Checkout
+// ============================================
 app.post('/api/checkout', async function(req, res) {
     const accessToken = req.body.accessToken;
     const productId = req.body.productId;
@@ -179,22 +218,38 @@ app.post('/api/checkout', async function(req, res) {
     };
     db.orders.push(order);
 
-    res.json({ success: true, order: order, payment: { transactionId: order.transactionId, status: 'PENDING', testnetMode: true } });
+    res.json({
+        success: true,
+        order: order,
+        payment: {
+            transactionId: order.transactionId,
+            status: 'PENDING',
+            testnetMode: true
+        }
+    });
 });
 
 app.get('/api/orders/user/:uid', function(req, res) {
     const uid = req.params.uid;
-    const orders = db.orders.filter(function(o) { return o.userId === uid || o.merchantId === uid; });
+    const orders = db.orders.filter(function(o) {
+        return o.userId === uid || o.merchantId === uid;
+    });
     res.json({ success: true, orders: orders });
 });
 
+// ============================================
 // Converter
+// ============================================
 app.post('/api/converter', function(req, res) {
     const productUSD = parseFloat(req.body.productUSD);
     const referenceSource = req.body.referenceSource;
-    if (!productUSD || productUSD <= 0) return res.status(400).json({ error: 'productUSD required' });
+    if (!productUSD || productUSD <= 0) {
+        return res.status(400).json({ error: 'productUSD required' });
+    }
 
-    let piAmount = 0, yerAmount = 0, mode = '';
+    let piAmount = 0;
+    let yerAmount = 0;
+    let mode = '';
 
     if (referenceSource === 'gcvalue') {
         piAmount = (productUSD * 0.15) / RATES.piGcvUsd;
@@ -222,7 +277,9 @@ app.post('/api/converter', function(req, res) {
     });
 });
 
+// ============================================
 // Merchant Stats
+// ============================================
 app.get('/api/merchant/stats/:uid', function(req, res) {
     const uid = req.params.uid;
     const myProducts = db.products.filter(function(p) { return p.merchantId === uid; });
@@ -249,7 +306,9 @@ app.get('/api/merchant/stats/:uid', function(req, res) {
 app.post('/api/festivals', async function(req, res) {
     const accessToken = req.body.accessToken;
     const festival = req.body.festival;
-    if (!accessToken || !festival) return res.status(400).json({ error: 'accessToken and festival required' });
+    if (!accessToken || !festival) {
+        return res.status(400).json({ error: 'accessToken and festival required' });
+    }
 
     const user = await verifyUser(accessToken);
     if (!user) return res.status(401).json({ error: 'Invalid token' });
@@ -277,7 +336,7 @@ app.post('/api/festivals', async function(req, res) {
     res.json({ success: true, festival: newFestival });
 });
 
-// قائمة المهرجانات
+// قائمة المهرجانات (المعتمدة)
 app.get('/api/festivals', function(req, res) {
     let filtered = db.festivals.filter(function(f) { return f.status !== 'PENDING'; });
     filtered.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
@@ -355,21 +414,27 @@ app.get('/api/festivals/:id', function(req, res) {
     res.json({ success: true, festival: festival, summary: summary });
 });
 
-// الموافقة
+// الموافقة على مهرجان (Admin)
 app.post('/api/festivals/:id/approve', function(req, res) {
-    if (req.body.adminKey !== 'ae-admin-2026') return res.status(403).json({ error: 'Invalid admin key' });
+    if (req.body.adminKey !== 'ae-admin-2026') {
+        return res.status(403).json({ error: 'Invalid admin key' });
+    }
+
     const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
     festival.status = 'APPROVED';
     festival.approvedAt = new Date().toISOString();
     res.json({ success: true, festival: festival });
 });
 
-// إضافة عرض
+// إضافة عرض منتج
 app.post('/api/festivals/:id/products', async function(req, res) {
     const accessToken = req.body.accessToken;
     const product = req.body.product;
-    if (!accessToken || !product) return res.status(400).json({ error: 'accessToken and product required' });
+    if (!accessToken || !product) {
+        return res.status(400).json({ error: 'accessToken and product required' });
+    }
 
     const user = await verifyUser(accessToken);
     if (!user) return res.status(401).json({ error: 'Invalid token' });
@@ -402,7 +467,9 @@ app.post('/api/festivals/:id/exchange', async function(req, res) {
     const accessToken = req.body.accessToken;
     const offerId = req.body.offerId;
     const piAmount = parseFloat(req.body.piAmount);
-    if (!accessToken || !offerId || !piAmount) return res.status(400).json({ error: 'Missing fields' });
+    if (!accessToken || !offerId || !piAmount) {
+        return res.status(400).json({ error: 'accessToken, offerId, piAmount required' });
+    }
 
     const user = await verifyUser(accessToken);
     if (!user) return res.status(401).json({ error: 'Invalid token' });
@@ -412,7 +479,9 @@ app.post('/api/festivals/:id/exchange', async function(req, res) {
 
     const offer = festival.products.find(function(p) { return p.id === offerId; });
     if (!offer) return res.status(404).json({ error: 'Offer not found' });
-    if (offer.status !== 'AVAILABLE') return res.status(400).json({ error: 'العرض غير متاح' });
+    if (offer.status !== 'AVAILABLE') {
+        return res.status(400).json({ error: 'العرض غير متاح' });
+    }
 
     const exchange = {
         id: 'exc_' + Date.now(),
@@ -423,7 +492,7 @@ app.post('/api/festivals/:id/exchange', async function(req, res) {
         productName: offer.name,
         category: offer.category,
         piAmount: piAmount,
-        usdValue: parseFloat((piAmount * 0.63).toFixed(2)),
+        usdValue: parseFloat((piAmount * RATES.piAmmUsd).toFixed(2)),
         status: 'COMPLETED',
         timestamp: new Date().toISOString()
     };
@@ -437,30 +506,32 @@ app.post('/api/festivals/:id/exchange', async function(req, res) {
     res.json({ success: true, exchange: exchange });
 });
 
+// حذف عرض
+app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
+    const accessToken = req.body.accessToken;
+    if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
+
+    const user = await verifyUser(accessToken);
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
+    if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
+    const index = festival.products.findIndex(function(p) { return p.id === req.params.offerId; });
+    if (index === -1) return res.status(404).json({ error: 'Offer not found' });
+
+    const offer = festival.products[index];
+    if (offer.sellerId !== user.uid && festival.editors.indexOf(user.uid) === -1) {
+        return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    festival.products.splice(index, 1);
+    res.json({ success: true });
+});
+
+// ============================================
 // Root
+// ============================================
 app.get('/api', function(req, res) {
     res.json({
-        message: '🚀 GAV API',
-        version: '2.0.0',
-        features: { priceCap: '15%', barterFestivals: 'enabled' },
-        categories: CATEGORIES.length,
-        products: db.products.length,
-        festivals: db.festivals.length
-    });
-});
-
-app.get('/', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.use(function(req, res) {
-    res.status(404).json({ error: 'Not Found' });
-});
-
-if (require.main === module) {
-    app.listen(PORT, function() {
-        console.log('✅ GAV v2.0.0 running on port ' + PORT);
-    });
-}
-
-module.exports = app;
+        message: '🚀 GAV API
