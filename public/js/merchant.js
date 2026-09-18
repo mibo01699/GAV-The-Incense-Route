@@ -1,5 +1,5 @@
 // ============================================
-// GAV - The Incense Route | Merchant Dashboard
+// GAV - The Incense Route | Merchant Dashboard v2
 // ============================================
 
 let myProducts = [];
@@ -71,19 +71,22 @@ function createMyProductCard(product) {
     const icon = category ? category.icon : '📦';
 
     let priceText = '';
-    if (product.pricePi > 0) priceText += `${parseFloat(product.pricePi).toFixed(2)} Pi`;
+    if (product.pricePi > 0) priceText += `${parseFloat(product.pricePi).toFixed(4)} Pi`;
     if (product.pricePi > 0 && product.priceYER > 0) priceText += ' + ';
     if (product.priceYER > 0) priceText += `${parseFloat(product.priceYER).toFixed(0)} YER`;
 
+    const refSource = product.referenceValue?.source === 'gcvalue' ? '💎 GCV' :
+                      product.referenceValue?.source === 'dex' ? '📈 AMM' : '—';
+
     div.innerHTML = `
         <div class="order-header">
-            <span class="order-id">${icon} ${escapeHtml(product.category || '')}</span>
+            <span class="order-id">${icon} ${escapeHtml(category?.name || '')}</span>
             <button class="btn-small" style="background:#e74c3c;" onclick="event.stopPropagation(); deleteProduct('${product.id}')">🗑️ حذف</button>
         </div>
         <div class="order-product">${escapeHtml(product.name)}</div>
         <div class="order-amount">${priceText}</div>
         <div style="font-size:0.72rem;color:#7f8c8d;margin-top:6px;">
-            المخزون: ${product.stock || 0} | ${formatDate(product.createdAt)}
+            قيمة: ${product.priceUSD || 0}$ | مرجع: ${refSource} | مخزون: ${product.stock || 1}
         </div>
     `;
 
@@ -99,12 +102,21 @@ async function addProduct() {
     const name = document.getElementById('new-product-name').value.trim();
     const description = document.getElementById('new-product-description').value.trim();
     const category = document.getElementById('new-product-category').value;
+    const priceUSD = parseFloat(document.getElementById('new-product-price-usd').value) || 0;
     const pricePi = parseFloat(document.getElementById('new-product-price-pi').value) || 0;
     const priceYER = parseFloat(document.getElementById('new-product-price-yer').value) || 0;
+    const referenceSource = document.getElementById('new-product-reference-source').value || '';
+    const piRatio = parseFloat(document.getElementById('new-product-pi-ratio').value) || 0;
 
     // التحقق من المدخلات
     if (!name) return alert('⚠️ يجب إدخال اسم المنتج');
-    if (pricePi === 0 && priceYER === 0) return alert('⚠️ يجب تحديد سعر واحد على الأقل (Pi أو YER)');
+    if (priceUSD <= 0) return alert('⚠️ يجب إدخال قيمة المنتج بالدولار');
+    if (pricePi <= 0 && priceYER <= 0) {
+        return alert('⚠️ يجب استخدام الحاسبة الذكية 🧮 لحساب التوزيع أولاً');
+    }
+    if (!referenceSource) {
+        return alert('⚠️ يجب اختيار القيمة المرجعية في الحاسبة (GCV أو AMM)');
+    }
 
     const btn = event.target;
     btn.disabled = true;
@@ -120,8 +132,11 @@ async function addProduct() {
                     name,
                     description,
                     category,
+                    priceUSD,
                     pricePi,
                     priceYER,
+                    referenceSource,
+                    referencePiRatio: piRatio,
                     stock: 1
                 }
             })
@@ -135,8 +150,11 @@ async function addProduct() {
             // تفريغ الحقول
             document.getElementById('new-product-name').value = '';
             document.getElementById('new-product-description').value = '';
+            document.getElementById('new-product-price-usd').value = '';
             document.getElementById('new-product-price-pi').value = '';
             document.getElementById('new-product-price-yer').value = '';
+            document.getElementById('new-product-reference-source').value = '';
+            document.getElementById('new-product-pi-ratio').value = '';
 
             // إعادة التحميل
             await loadMyProducts();
