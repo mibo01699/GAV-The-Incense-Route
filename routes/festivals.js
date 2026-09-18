@@ -1,342 +1,295 @@
-const express = require('express');
-const router = express.Router();
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAV - The Incense Route</title>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .page { display: none !important; }
+        .page.active { display: block !important; }
+        #calculator-modal { display: none; }
+        #calculator-fab { display: none; }
+    </style>
+</head>
+<body>
 
-const BIGISH_YER_URL = process.env.BIGISH_YER_URL || 'https://bigish-yer.vercel.app';
+<header class="top-bar">
+    <div class="logo">🛣️ GAV</div>
+    <div class="network-badge"><span class="dot testnet"></span> Testnet</div>
+    <div id="user-info">
+        <span id="username">زائر</span>
+        <button id="logout-btn" style="display:none;" onclick="logout()">خروج</button>
+    </div>
+</header>
 
-async function verifyUser(accessToken) {
-    try {
-        const res = await fetch(BIGISH_YER_URL + '/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: accessToken })
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.success ? data.user : null;
-    } catch (e) {
-        return null;
-    }
-}
+<nav class="bottom-nav" id="bottom-nav" style="display:none;">
+    <button class="nav-btn active" data-page="home" onclick="showPage('home')">
+        <span class="nav-icon">🏠</span><span class="nav-label">الرئيسية</span>
+    </button>
+    <button class="nav-btn" data-page="products" onclick="showPage('products')">
+        <span class="nav-icon">📦</span><span class="nav-label">المنتجات</span>
+    </button>
+    <button class="nav-btn" data-page="festivals" onclick="showPage('festivals')">
+        <span class="nav-icon">🎪</span><span class="nav-label">المهرجانات</span>
+    </button>
+    <button class="nav-btn" data-page="cart" onclick="showPage('cart')">
+        <span class="nav-icon">🛒</span><span class="nav-label">السلة</span>
+    </button>
+    <button class="nav-btn" data-page="merchant" onclick="showPage('merchant')">
+        <span class="nav-icon">🏪</span><span class="nav-label">التاجر</span>
+    </button>
+</nav>
 
-function setupFestivalRoutes(db) {
+<button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
 
-    // ============================================
-    // إنشاء مهرجان
-    // ============================================
-    router.post('/', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        const festival = req.body.festival;
-        if (!accessToken || !festival) {
-            return res.status(400).json({ error: 'accessToken and festival required' });
-        }
+<div id="calculator-modal" class="calculator-modal">
+    <div class="calculator-sheet">
+        <div class="calculator-header">
+            <h3>🧮 الحاسبة الذكية</h3>
+            <button class="calculator-close" onclick="closeCalculator()">✕</button>
+        </div>
+        <div class="calculator-body">
+            <div class="calc-field">
+                <label>💵 قيمة المنتج $</label>
+                <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
+            </div>
+            <div class="calc-field">
+                <label>📊 القيمة المرجعية</label>
+                <div class="calc-options">
+                    <label class="calc-option">
+                        <input type="radio" name="calc-ref" value="gcvalue">
+                        <div class="calc-option-content">
+                            <span class="calc-option-icon">💎</span>
+                            <span class="calc-option-title">القيمة المرجعية</span>
+                            <span class="calc-option-desc">314,159 $</span>
+                            <span class="calc-option-split">85% YER + 15% Pi</span>
+                        </div>
+                    </label>
+                    <label class="calc-option">
+                        <input type="radio" name="calc-ref" value="dex">
+                        <div class="calc-option-content">
+                            <span class="calc-option-icon">📈</span>
+                            <span class="calc-option-title">Pi DEX AMM</span>
+                            <span class="calc-option-desc">السعر الحي</span>
+                            <span class="calc-option-split">50% Pi + 50% YER</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="calculateConversion()" style="margin-top:16px;">⚡ احسب التوزيع</button>
+            <div id="calc-results" style="display:none;margin-top:16px;">
+                <div class="calc-result-card">
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">💠 Pi</span>
+                        <strong id="calc-result-pi" class="calc-result-value">0</strong>
+                    </div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">🪙 YER</span>
+                        <strong id="calc-result-yer" class="calc-result-value">0</strong>
+                    </div>
+                    <div class="calc-result-note" id="calc-result-note"></div>
+                </div>
+                <button class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">📋 تطبيق على المنتج</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
+<main class="container">
 
-        const newFestival = {
-            id: 'fest_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            creatorId: user.uid,
-            creatorName: user.username,
-            title: festival.title || 'مهرجان مقايضة',
-            description: festival.description || '',
-            location: festival.location || '',
-            country: festival.country || '',
-            region: festival.region || '',
-            startDate: festival.startDate || new Date().toISOString(),
-            endDate: festival.endDate || new Date(Date.now() + 7 * 86400000).toISOString(),
-            editors: [user.uid],
-            editorNames: [user.username],
-            maxEditors: 5,
-            products: [],
-            exchanges: [],      // سجل الصفقات المكتملة
-            status: 'PENDING',
-            createdAt: new Date().toISOString()
-        };
+    <section id="page-login" class="page active">
+        <div class="card">
+            <h1>🛣️ GAV - طريق البخور</h1>
+            <p class="subtitle">منصة التجارة العابرة للحدود</p>
+            <p class="description">تبادل السلع التراثية والبخور والعطور عبر منظومة Arabian Eagle</p>
+            <button id="login-btn" class="btn-primary" onclick="loginWithPi()">🚀 تسجيل الدخول بحساب Pi</button>
+            <div id="login-error" class="error" style="display:none;"></div>
+            <div class="status-note"><small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small></div>
+        </div>
+    </section>
 
-        db.festivals.push(newFestival);
-        res.json({ success: true, festival: newFestival });
-    });
+    <section id="page-home" class="page">
+        <div class="card user-card">
+            <h2>مرحباً، <span id="user-name"></span></h2>
+            <p class="user-id">معرف Pi: <span id="user-id"></span></p>
+        </div>
+        <div class="card">
+            <h3>💰 محفظتك</h3>
+            <div class="balance-grid">
+                <div class="balance-item">
+                    <span class="label">Pi</span>
+                    <span class="value" id="pi-balance">0.00</span>
+                </div>
+                <div class="balance-item">
+                    <span class="label">YER</span>
+                    <span class="value" id="yer-balance">0.00</span>
+                </div>
+            </div>
+            <p class="subtitle" style="margin-top:12px; text-align:center;"><small>الدفع يتم عبر محفظة BIGISH-YER</small></p>
+        </div>
+        <div class="card">
+            <h3>🌿 تصفح الأقسام</h3>
+            <div id="categories-grid" class="categories-grid"></div>
+        </div>
+        <div class="card">
+            <h3>🔥 أحدث المنتجات</h3>
+            <div id="featured-products" class="products-grid"></div>
+        </div>
+    </section>
 
-    // ============================================
-    // قائمة المهرجانات المعتمدة
-    // ============================================
-    router.get('/', (req, res) => {
-        let filtered = db.festivals.filter(f => f.status !== 'PENDING');
-        if (req.query.status) filtered = filtered.filter(f => f.status === req.query.status);
-        if (req.query.country) filtered = filtered.filter(f => f.country === req.query.country);
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        res.json({ success: true, festivals: filtered, count: filtered.length });
-    });
+    <section id="page-products" class="page">
+        <div class="card">
+            <h3>📦 جميع المنتجات</h3>
+            <input type="text" id="search-input" placeholder="ابحث عن منتج..." oninput="filterProducts()">
+            <div id="filter-buttons" class="filter-buttons"></div>
+            <div id="products-list" class="products-grid"></div>
+        </div>
+    </section>
 
-    // ============================================
-    // مهرجاناتي
-    // ============================================
-    router.get('/my/:uid', (req, res) => {
-        const uid = req.params.uid;
-        const myFestivals = db.festivals.filter(f =>
-            f.creatorId === uid || f.editors.indexOf(uid) !== -1
-        );
-        res.json({ success: true, festivals: myFestivals });
-    });
+    <!-- ============================================ -->
+    <!-- صفحة المهرجانات -->
+    <!-- ============================================ -->
+    <section id="page-festivals" class="page">
+        <div class="card">
+            <h3>🎪 مهرجانات المقايضة</h3>
+            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة</p>
 
-    // ============================================
-    // سجل المهرجانات (Log - ملخص لكل مهرجان)
-    // ============================================
-    router.get('/log/all', (req, res) => {
-        const log = db.festivals
-            .filter(f => f.status === 'APPROVED' || f.status === 'ACTIVE' || f.status === 'ENDED')
-            .map(f => {
-                const exchanges = f.exchanges || [];
-                const totalTransactions = exchanges.length;
-                const totalPiValue = exchanges.reduce((sum, e) => sum + (e.piAmount || 0), 0);
-                const totalUSDValue = exchanges.reduce((sum, e) => sum + (e.usdValue || 0), 0);
+            <div class="festival-actions">
+                <button class="btn-primary" onclick="openCreateFestival()" style="margin-top:8px;">
+                    ➕ إنشاء مهرجان جديد
+                </button>
+                <button class="btn-secondary" onclick="loadFestivalLog()" style="margin-top:8px;">
+                    📊 سجل المهرجانات
+                </button>
+            </div>
+        </div>
 
-                // تجميع الفئات المباعة
-                const categoriesSold = {};
-                exchanges.forEach(function(e) {
-                    const cat = e.category || 'others';
-                    categoriesSold[cat] = (categoriesSold[cat] || 0) + 1;
-                });
+        <div class="card">
+            <h3>🎯 المهرجانات النشطة</h3>
+            <div id="festivals-list">
+                <p class="empty-state">لا توجد مهرجانات حالياً.</p>
+            </div>
+            <button class="btn-secondary" onclick="loadFestivals()" style="margin-top:12px;">🔄 تحديث</button>
+        </div>
 
-                return {
-                    id: f.id,
-                    title: f.title,
-                    location: f.location,
-                    country: f.country,
-                    region: f.region,
-                    status: f.status,
-                    creatorName: f.creatorName,
-                    editorsCount: f.editors.length - 1,
-                    productsOffered: f.products.length,
-                    summary: {
-                        totalTransactions: totalTransactions,
-                        totalPiValue: parseFloat(totalPiValue.toFixed(10)),
-                        totalUSDValue: parseFloat(totalUSDValue.toFixed(2)),
-                        categoriesSold: categoriesSold
-                    },
-                    startDate: f.startDate,
-                    endDate: f.endDate,
-                    createdAt: f.createdAt
-                };
-            })
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        <div class="card" id="festival-log-card" style="display:none;">
+            <h3>📊 سجل المهرجانات</h3>
+            <div id="festival-log-content"></div>
+        </div>
 
-        res.json({
-            success: true,
-            totalFestivals: log.length,
-            grandTotalTransactions: log.reduce((sum, f) => sum + f.summary.totalTransactions, 0),
-            grandTotalPiValue: parseFloat(log.reduce((sum, f) => sum + f.summary.totalPiValue, 0).toFixed(10)),
-            grandTotalUSDValue: parseFloat(log.reduce((sum, f) => sum + f.summary.totalUSDValue, 0).toFixed(2)),
-            festivals: log
-        });
-    });
+        <div class="card">
+            <h3>📋 مهرجاناتي</h3>
+            <div id="my-festivals-list">
+                <p class="empty-state">لم تنشئ أي مهرجان بعد.</p>
+            </div>
+        </div>
+    </section>
 
-    // ============================================
-    // تفاصيل مهرجان (مع السجل)
-    // ============================================
-    router.get('/:id', (req, res) => {
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
+    <section id="page-cart" class="page">
+        <div class="card">
+            <h3>🛒 سلة التسوق</h3>
+            <div id="cart-items"><p class="empty-state">السلة فارغة حالياً.</p></div>
+            <div id="cart-summary" style="display:none;">
+                <div class="cart-total">
+                    <span>الإجمالي:</span>
+                    <strong id="cart-total-amount">0</strong>
+                </div>
+                <button class="btn-primary" onclick="checkout()" style="margin-top:12px;">💳 إتمام الدفع</button>
+            </div>
+        </div>
+    </section>
 
-        // إضافة ملخص
-        const exchanges = festival.exchanges || [];
-        const summary = {
-            totalTransactions: exchanges.length,
-            totalPiValue: parseFloat(exchanges.reduce((sum, e) => sum + (e.piAmount || 0), 0).toFixed(10)),
-            totalUSDValue: parseFloat(exchanges.reduce((sum, e) => sum + (e.usdValue || 0), 0).toFixed(2))
-        };
+    <section id="page-orders" class="page">
+        <div class="card">
+            <h3>📋 طلباتي</h3>
+            <div id="orders-list"><p class="empty-state">لا توجد طلبات بعد.</p></div>
+            <button class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">🔄 تحديث</button>
+        </div>
+    </section>
 
-        res.json({ success: true, festival: festival, summary: summary });
-    });
+    <section id="page-merchant" class="page">
+        <div class="card">
+            <h3>🏪 لوحة التاجر</h3>
+            <div id="merchant-stats" class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">المنتجات</span>
+                    <span class="stat-value" id="stat-products">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">الطلبات</span>
+                    <span class="stat-value" id="stat-orders">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pi مكتسب</span>
+                    <span class="stat-value" id="stat-pi">0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">YER مكتسب</span>
+                    <span class="stat-value" id="stat-yer">0.00</span>
+                </div>
+            </div>
+        </div>
 
-    // ============================================
-    // تعديل مهرجان
-    // ============================================
-    router.put('/:id', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        const updates = req.body.updates;
-        if (!accessToken || !updates) {
-            return res.status(400).json({ error: 'accessToken and updates required' });
-        }
+        <div class="card">
+            <h3>➕ إضافة منتج جديد</h3>
+            <input type="text" id="new-product-name" placeholder="اسم المنتج">
+            <textarea id="new-product-description" placeholder="وصف المنتج" style="margin-top:8px;"></textarea>
+            <select id="new-product-category" style="margin-top:8px;">
+                <option value="incense">البخور والعطور</option>
+                <option value="luban">البان</option>
+                <option value="dates">التمور</option>
+                <option value="textiles">المنسوجات</option>
+                <option value="handicrafts">الحرف اليدوية</option>
+                <option value="food">المواد الغذائية</option>
+                <option value="vegetables">الخضروات والفواكه</option>
+                <option value="meat">اللحوم</option>
+                <option value="fish">الأسماك</option>
+                <option value="beverages">المشروبات</option>
+                <option value="coffee">البن والقهوة</option>
+                <option value="honey">العسل الطبيعي</option>
+                <option value="spices">التوابل</option>
+                <option value="gold">الذهب والمجوهرات</option>
+                <option value="silver">الفضيات</option>
+                <option value="clothing">الملابس</option>
+                <option value="accessories">الإكسسوارات</option>
+                <option value="cosmetics">أدوات التجميل</option>
+                <option value="electronics">الأجهزة الإلكترونية</option>
+                <option value="smartphones">الهواتف الذكية</option>
+                <option value="hardware">الخردوات والأدوات</option>
+                <option value="home">مستلزمات المنزل</option>
+                <option value="agriculture">المستلزمات الزراعية</option>
+                <option value="others">أخرى</option>
+            </select>
 
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
+            <input type="number" id="new-product-price-usd" placeholder="قيمة المنتج $" step="0.01" style="margin-top:8px;">
+            <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi (تلقائي)" step="0.0000000001" style="margin-top:8px;" readonly>
+            <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER (تلقائي)" step="0.01" style="margin-top:8px;" readonly>
 
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-        if (festival.editors.indexOf(user.uid) === -1) {
-            return res.status(403).json({ error: 'Not an editor' });
-        }
+            <input type="hidden" id="new-product-reference-source">
+            <input type="hidden" id="new-product-pi-ratio">
 
-        const allowed = ['title', 'description', 'location', 'country', 'region', 'startDate', 'endDate'];
-        allowed.forEach(function(key) {
-            if (updates[key] !== undefined) festival[key] = updates[key];
-        });
+            <button class="btn-primary" onclick="addProduct()" style="margin-top:12px;">➕ إضافة المنتج</button>
+        </div>
 
-        festival.updatedAt = new Date().toISOString();
-        res.json({ success: true, festival: festival });
-    });
+        <div class="card">
+            <h3>📦 منتجاتي</h3>
+            <div id="my-products-list"><p class="empty-state">لا توجد منتجات بعد.</p></div>
+        </div>
+    </section>
 
-    // ============================================
-    // إضافة محرر (حتى 5)
-    // ============================================
-    router.post('/:id/add-editor', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        const editorUid = req.body.editorUid;
-        const editorName = req.body.editorName;
-        if (!accessToken || !editorUid) {
-            return res.status(400).json({ error: 'accessToken and editorUid required' });
-        }
+</main>
 
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
+<script src="js/pi-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/products.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/payment.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/merchant.js"></script>
+<script src="js/converter.js"></script>
+<script src="js/festivals.js"></script>
 
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-        if (festival.creatorId !== user.uid) {
-            return res.status(403).json({ error: 'Only creator can add editors' });
-        }
-        if (festival.editors.length >= 6) {
-            return res.status(400).json({ error: 'الحد الأقصى 5 محررين' });
-        }
-        if (festival.editors.indexOf(editorUid) !== -1) {
-            return res.status(400).json({ error: 'Editor already added' });
-        }
-
-        festival.editors.push(editorUid);
-        festival.editorNames.push(editorName || ('User-' + editorUid.slice(0, 6)));
-        res.json({ success: true, festival: festival });
-    });
-
-    // ============================================
-    // الموافقة (Admin)
-    // ============================================
-    router.post('/:id/approve', (req, res) => {
-        if (req.body.adminKey !== 'ae-admin-2026') {
-            return res.status(403).json({ error: 'Invalid admin key' });
-        }
-
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-        festival.status = 'APPROVED';
-        festival.approvedAt = new Date().toISOString();
-        res.json({ success: true, festival: festival });
-    });
-
-    // ============================================
-    // إضافة عرض منتج (حرية كاملة في التسعير)
-    // ============================================
-    router.post('/:id/products', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        const product = req.body.product;
-        if (!accessToken || !product) {
-            return res.status(400).json({ error: 'accessToken and product required' });
-        }
-
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-        if (festival.status !== 'APPROVED' && festival.status !== 'ACTIVE') {
-            return res.status(400).json({ error: 'المهرجان غير مفعّل' });
-        }
-
-        const newOffer = {
-            id: 'offer_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            sellerId: user.uid,
-            sellerName: user.username,
-            name: product.name,
-            description: product.description || '',
-            category: product.category || 'others',
-            pricePi: parseFloat(product.pricePi) || 0,
-            quantity: parseInt(product.quantity) || 1,
-            status: 'AVAILABLE',
-            createdAt: new Date().toISOString()
-        };
-
-        festival.products.push(newOffer);
-        res.json({ success: true, offer: newOffer });
-    });
-
-    // ============================================
-    // تنفيذ مقايضة (Exchange)
-    // ============================================
-    router.post('/:id/exchange', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        const offerId = req.body.offerId;
-        const piAmount = parseFloat(req.body.piAmount);
-        if (!accessToken || !offerId || !piAmount) {
-            return res.status(400).json({ error: 'accessToken, offerId, piAmount required' });
-        }
-
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-        const offer = festival.products.find(p => p.id === offerId);
-        if (!offer) return res.status(404).json({ error: 'Offer not found' });
-        if (offer.status !== 'AVAILABLE') {
-            return res.status(400).json({ error: 'العرض غير متاح' });
-        }
-
-        // تسجيل المقايضة
-        const exchange = {
-            id: 'exc_' + Date.now(),
-            festivalId: festival.id,
-            offerId: offerId,
-            buyerId: user.uid,
-            buyerName: user.username,
-            sellerId: offer.sellerId,
-            sellerName: offer.sellerName,
-            productName: offer.name,
-            category: offer.category,
-            piAmount: piAmount,
-            usdValue: parseFloat((piAmount * 0.63).toFixed(2)),  // قيمة تقديرية بـ AMM
-            status: 'COMPLETED',
-            timestamp: new Date().toISOString()
-        };
-
-        if (!festival.exchanges) festival.exchanges = [];
-        festival.exchanges.push(exchange);
-
-        // تحديث حالة العرض
-        offer.status = 'SOLD';
-        offer.soldAt = new Date().toISOString();
-        offer.buyerId = user.uid;
-
-        res.json({ success: true, exchange: exchange });
-    });
-
-    // ============================================
-    // حذف عرض
-    // ============================================
-    router.delete('/:id/products/:offerId', async (req, res) => {
-        const accessToken = req.body.accessToken;
-        if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
-
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-        const festival = db.festivals.find(f => f.id === req.params.id);
-        if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-        const index = festival.products.findIndex(p => p.id === req.params.offerId);
-        if (index === -1) return res.status(404).json({ error: 'Offer not found' });
-
-        const offer = festival.products[index];
-        if (offer.sellerId !== user.uid && festival.editors.indexOf(user.uid) === -1) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-
-        festival.products.splice(index, 1);
-        res.json({ success: true });
-    });
-
-    return router;
-}
-
-module.exports = setupFestivalRoutes;
+</body>
+</html>
