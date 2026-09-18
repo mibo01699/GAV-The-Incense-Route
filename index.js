@@ -16,13 +16,13 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
-// أسعار التحويل المرجعية
+// Rates
 // ============================================
 const RATES = {
     piGcvUsd: 314159,
     piAmmUsd: parseFloat(process.env.PI_AMM_RATE) || 0.63,
     yerAmmUsd: parseFloat(process.env.YER_AMM_RATE) || 0.01,
-    priceCapPercent: 15,  // هامش 15% كحد أقصى
+    priceCapPercent: 15,
     source: process.env.PI_AMM_RATE ? 'live' : 'placeholder',
     updatedAt: new Date().toISOString()
 };
@@ -33,32 +33,31 @@ const RATES = {
 const db = {
     products: [],
     orders: [],
-    merchants: {},
     festivals: [],
     categories: [
-        { id: 'incense', name: 'البخور والعطور', nameEn: 'Incense & Perfumes', icon: '🌿' },
+        { id: 'incense', name: 'البخور والعطور', nameEn: 'Incense', icon: '🌿' },
         { id: 'luban', name: 'البان', nameEn: 'Luban', icon: '🪔' },
         { id: 'dates', name: 'التمور', nameEn: 'Dates', icon: '🌴' },
         { id: 'textiles', name: 'المنسوجات', nameEn: 'Textiles', icon: '🧵' },
         { id: 'handicrafts', name: 'الحرف اليدوية', nameEn: 'Handicrafts', icon: '🏺' },
-        { id: 'food', name: 'المواد الغذائية', nameEn: 'Food Products', icon: '🥫' },
-        { id: 'vegetables', name: 'الخضروات والفواكه', nameEn: 'Vegetables & Fruits', icon: '🥬' },
+        { id: 'food', name: 'المواد الغذائية', nameEn: 'Food', icon: '🥫' },
+        { id: 'vegetables', name: 'الخضروات والفواكه', nameEn: 'Vegetables', icon: '🥬' },
         { id: 'meat', name: 'اللحوم', nameEn: 'Meat', icon: '🥩' },
-        { id: 'fish', name: 'الأسماك', nameEn: 'Fish & Seafood', icon: '🐟' },
+        { id: 'fish', name: 'الأسماك', nameEn: 'Fish', icon: '🐟' },
         { id: 'beverages', name: 'المشروبات', nameEn: 'Beverages', icon: '🥤' },
         { id: 'coffee', name: 'البن والقهوة', nameEn: 'Coffee', icon: '☕' },
-        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Natural Honey', icon: '🍯' },
+        { id: 'honey', name: 'العسل الطبيعي', nameEn: 'Honey', icon: '🍯' },
         { id: 'spices', name: 'التوابل', nameEn: 'Spices', icon: '🌶️' },
-        { id: 'gold', name: 'الذهب والمجوهرات', nameEn: 'Gold & Jewelry', icon: '💍' },
-        { id: 'silver', name: 'الفضيات', nameEn: 'Silverware', icon: '🥈' },
+        { id: 'gold', name: 'الذهب والمجوهرات', nameEn: 'Gold', icon: '💍' },
+        { id: 'silver', name: 'الفضيات', nameEn: 'Silver', icon: '🥈' },
         { id: 'clothing', name: 'الملابس', nameEn: 'Clothing', icon: '👕' },
         { id: 'accessories', name: 'الإكسسوارات', nameEn: 'Accessories', icon: '👜' },
         { id: 'cosmetics', name: 'أدوات التجميل', nameEn: 'Cosmetics', icon: '💄' },
         { id: 'electronics', name: 'الأجهزة الإلكترونية', nameEn: 'Electronics', icon: '📱' },
         { id: 'smartphones', name: 'الهواتف الذكية', nameEn: 'Smartphones', icon: '📲' },
-        { id: 'hardware', name: 'الخردوات والأدوات', nameEn: 'Hardware & Tools', icon: '🔧' },
-        { id: 'home', name: 'مستلزمات المنزل', nameEn: 'Home Supplies', icon: '🏠' },
-        { id: 'agriculture', name: 'المستلزمات الزراعية', nameEn: 'Agricultural Supplies', icon: '🌾' },
+        { id: 'hardware', name: 'الخردوات والأدوات', nameEn: 'Hardware', icon: '🔧' },
+        { id: 'home', name: 'مستلزمات المنزل', nameEn: 'Home', icon: '🏠' },
+        { id: 'agriculture', name: 'المستلزمات الزراعية', nameEn: 'Agriculture', icon: '🌾' },
         { id: 'others', name: 'أخرى', nameEn: 'Others', icon: '📦' }
     ]
 };
@@ -77,20 +76,18 @@ async function verifyUser(accessToken) {
         const data = await res.json();
         return data.success ? data.user : null;
     } catch (e) {
-        console.error('verifyUser error:', e);
+        console.error('verifyUser error:', e.message);
         return null;
     }
 }
 
 function calculateMaxPrice(piAmount) {
-    // السعر المرجعي = Pi DEX AMM
-    // السعر المسموح = المرجع + 15%
     const multiplier = 1 + (RATES.priceCapPercent / 100);
     return piAmount * multiplier;
 }
 
 // ============================================
-// API: Health
+// Health
 // ============================================
 app.get('/api/health', (req, res) => {
     res.json({
@@ -100,8 +97,7 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         integrations: {
             bigishYer: BIGISH_YER_URL,
-            appId: GAV_APP_ID,
-            apiKeyConfigured: GAV_API_KEY !== 'gav-secret-pending'
+            appId: GAV_APP_ID
         },
         rates: RATES,
         stats: {
@@ -121,9 +117,7 @@ app.get('/api/rates', (req, res) => {
             piAmm: RATES.piAmmUsd,
             yerAmm: RATES.yerAmmUsd,
             priceCapPercent: RATES.priceCapPercent
-        },
-        source: RATES.source,
-        timestamp: RATES.updatedAt
+        }
     });
 });
 
@@ -132,12 +126,11 @@ app.get('/api/categories', (req, res) => {
 });
 
 // ============================================
-// API: Products
+// Products
 // ============================================
 app.get('/api/products', (req, res) => {
     const { category, merchantId, search } = req.query;
     let filtered = [...db.products];
-
     if (category) filtered = filtered.filter(p => p.category === category);
     if (merchantId) filtered = filtered.filter(p => p.merchantId === merchantId);
     if (search) {
@@ -147,7 +140,6 @@ app.get('/api/products', (req, res) => {
             (p.description && p.description.toLowerCase().includes(s))
         );
     }
-
     res.json({ success: true, products: filtered, count: filtered.length });
 });
 
@@ -167,14 +159,13 @@ app.post('/api/products', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Invalid token' });
 
     // التحقق من هامش 15%
-    const refPiPrice = product.pricePi || 0;
+    const refPiPrice = parseFloat(product.pricePi) || 0;
     const maxAllowedPi = calculateMaxPrice(refPiPrice);
 
-    if (product.pricePi > maxAllowedPi) {
+    if (refPiPrice > maxAllowedPi) {
         return res.status(400).json({
-            error: `السعر يتجاوز الحد المسموح به (${RATES.priceCapPercent}% فوق المرجع)`,
-            maxAllowed: maxAllowedPi,
-            requested: product.pricePi
+            error: `السعر يتجاوز الحد المسموح به (${RATES.priceCapPercent}%)`,
+            maxAllowed: maxAllowedPi
         });
     }
 
@@ -192,10 +183,8 @@ app.post('/api/products', async (req, res) => {
             source: product.referenceSource || 'dex',
             piRatio: parseFloat(product.referencePiRatio) || 50,
             maxAllowedPi: maxAllowedPi,
-            priceCapPercent: RATES.priceCapPercent,
             updatedAt: new Date().toISOString()
         },
-        imageUrl: product.imageUrl || '',
         stock: parseInt(product.stock) || 1,
         createdAt: new Date().toISOString(),
         status: 'ACTIVE'
@@ -223,7 +212,7 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // ============================================
-// API: Checkout (مع قبول Testnet)
+// Checkout (مصحح)
 // ============================================
 app.post('/api/checkout', async (req, res) => {
     const { accessToken, productId, piAmount, yerAmount, quantity, shippingInfo } = req.body;
@@ -233,6 +222,9 @@ app.post('/api/checkout', async (req, res) => {
     }
 
     try {
+        const user = await verifyUser(accessToken);
+        if (!user) return res.status(401).json({ error: 'Invalid token' });
+
         const product = db.products.find(p => p.id === productId);
         if (!product) return res.status(404).json({ error: 'Product not found' });
 
@@ -260,7 +252,7 @@ app.post('/api/checkout', async (req, res) => {
             });
             paymentData = await paymentResponse.json();
         } catch (e) {
-            console.error('Payment gateway error (Testnet mode):', e.message);
+            console.error('Payment gateway error:', e.message);
             paymentData = { success: false, testnetMode: true };
         }
 
@@ -269,6 +261,8 @@ app.post('/api/checkout', async (req, res) => {
 
         const order = {
             id: `ord_${Date.now()}`,
+            userId: user.uid,
+            username: user.username,
             productId,
             productName: product.name,
             merchantId: product.merchantId,
@@ -288,9 +282,7 @@ app.post('/api/checkout', async (req, res) => {
             payment: {
                 transactionId: transactionId,
                 status: order.status,
-                testnetMode: !paymentData.success,
-                newPiBalance: paymentData.newPiBalance || 0,
-                newYerBalance: paymentData.newYerBalance || 0
+                testnetMode: !paymentData.success
             }
         });
     } catch (error) {
@@ -307,10 +299,10 @@ app.get('/api/orders/user/:uid', (req, res) => {
 });
 
 // ============================================
-// API: Smart Converter (مع هامش 15%)
+// Converter
 // ============================================
 app.post('/api/converter', (req, res) => {
-    const { productUSD, referenceSource, customPiPrice } = req.body;
+    const { productUSD, referenceSource } = req.body;
     if (!productUSD || parseFloat(productUSD) <= 0) {
         return res.status(400).json({ error: 'productUSD required' });
     }
@@ -331,12 +323,6 @@ app.post('/api/converter', (req, res) => {
                 yerPercentage: 85,
                 piAmount: parseFloat(piAmount.toFixed(10)),
                 yerAmount: parseFloat(yerAmount.toFixed(4))
-            },
-            calculation: {
-                capitalUSD: parseFloat(capitalUSD.toFixed(2)),
-                profitUSD: parseFloat(profitUSD.toFixed(2)),
-                piRateUsed: RATES.piGcvUsd,
-                yerRateUsed: RATES.yerAmmUsd
             }
         };
     } else if (referenceSource === 'dex') {
@@ -352,19 +338,12 @@ app.post('/api/converter', (req, res) => {
                 yerPercentage: 50,
                 piAmount: parseFloat(piAmount.toFixed(4)),
                 yerAmount: parseFloat(yerAmount.toFixed(4))
-            },
-            calculation: {
-                piUSD: parseFloat(piUSD.toFixed(2)),
-                yerUSD: parseFloat(yerUSD.toFixed(2)),
-                piRateUsed: RATES.piAmmUsd,
-                yerRateUsed: RATES.yerAmmUsd
             }
         };
     } else {
         return res.status(400).json({ error: 'Invalid referenceSource' });
     }
 
-    // إضافة هامش 15% (للمتاجر فقط)
     const maxAllowedPi = result.split.piAmount * (1 + RATES.priceCapPercent / 100);
 
     res.json({
@@ -381,10 +360,8 @@ app.post('/api/converter', (req, res) => {
 });
 
 // ============================================
-// API: Barter Festivals (مهرجانات المقايضة)
+// Festivals
 // ============================================
-
-// إنشاء مهرجان جديد
 app.post('/api/festivals', async (req, res) => {
     const { accessToken, festival } = req.body;
     if (!accessToken || !festival) {
@@ -406,23 +383,21 @@ app.post('/api/festivals', async (req, res) => {
         region: festival.region || '',
         startDate: festival.startDate || new Date().toISOString(),
         endDate: festival.endDate || new Date(Date.now() + 7 * 86400000).toISOString(),
-        editors: [user.uid],  // المالك كـ أول محرر
+        editors: [user.uid],
         editorNames: [user.username],
         maxEditors: 5,
-        products: [],  // عروض المنتجات
-        status: 'PENDING',  // PENDING → APPROVED → ACTIVE → ENDED
-        createdAt: new Date().toISOString(),
-        approvedAt: null
+        products: [],
+        status: 'PENDING',
+        createdAt: new Date().toISOString()
     };
 
     db.festivals.push(newFestival);
     res.json({ success: true, festival: newFestival });
 });
 
-// قائمة المهرجانات (العامة - المعتمدة فقط)
 app.get('/api/festivals', (req, res) => {
     const { status, country, region } = req.query;
-    let filtered = db.festivals.filter(f => f.status !== 'PENDING'); // لا تظهر المعلقة للعامة
+    let filtered = db.festivals.filter(f => f.status !== 'PENDING');
 
     if (status) filtered = filtered.filter(f => f.status === status);
     if (country) filtered = filtered.filter(f => f.country === country);
@@ -432,24 +407,20 @@ app.get('/api/festivals', (req, res) => {
     res.json({ success: true, festivals: filtered, count: filtered.length });
 });
 
-// مهرجاناتي (التي أنشأتها أو أديرها)
 app.get('/api/festivals/my/:uid', (req, res) => {
     const { uid } = req.params;
     const myFestivals = db.festivals.filter(f =>
         f.creatorId === uid || f.editors.includes(uid)
     );
-    myFestivals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json({ success: true, festivals: myFestivals });
 });
 
-// تفاصيل مهرجان
 app.get('/api/festivals/:id', (req, res) => {
     const festival = db.festivals.find(f => f.id === req.params.id);
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
     res.json({ success: true, festival });
 });
 
-// تعديل مهرجان (بحاجة إلى أن تكون من المحررين)
 app.put('/api/festivals/:id', async (req, res) => {
     const { accessToken, updates } = req.body;
     if (!accessToken || !updates) {
@@ -463,22 +434,18 @@ app.put('/api/festivals/:id', async (req, res) => {
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
 
     if (!festival.editors.includes(user.uid)) {
-        return res.status(403).json({ error: 'You are not an editor of this festival' });
+        return res.status(403).json({ error: 'Not an editor' });
     }
 
-    // الحقول المسموح تعديلها
     const allowed = ['title', 'description', 'location', 'gpsCoordinates', 'country', 'region', 'startDate', 'endDate'];
     allowed.forEach(key => {
         if (updates[key] !== undefined) festival[key] = updates[key];
     });
 
     festival.updatedAt = new Date().toISOString();
-    festival.lastUpdatedBy = user.username;
-
     res.json({ success: true, festival });
 });
 
-// إضافة محرر (حتى 5 محررين)
 app.post('/api/festivals/:id/add-editor', async (req, res) => {
     const { accessToken, editorUid, editorName } = req.body;
     if (!accessToken || !editorUid) {
@@ -495,8 +462,8 @@ app.post('/api/festivals/:id/add-editor', async (req, res) => {
         return res.status(403).json({ error: 'Only creator can add editors' });
     }
 
-    if (festival.editors.length >= festival.maxEditors + 1) { // +1 للمالك
-        return res.status(400).json({ error: `الحد الأقصى ${festival.maxEditors} محررين` });
+    if (festival.editors.length >= festival.maxEditors + 1) {
+        return res.status(400).json({ error: `الحد الأقصى ${festival.maxEditors}` });
     }
 
     if (festival.editors.includes(editorUid)) {
@@ -509,7 +476,6 @@ app.post('/api/festivals/:id/add-editor', async (req, res) => {
     res.json({ success: true, festival });
 });
 
-// الموافقة على مهرجان (Admin)
 app.post('/api/festivals/:id/approve', (req, res) => {
     const { adminKey } = req.body;
     if (adminKey !== 'ae-admin-2026') {
@@ -521,11 +487,9 @@ app.post('/api/festivals/:id/approve', (req, res) => {
 
     festival.status = 'APPROVED';
     festival.approvedAt = new Date().toISOString();
-
     res.json({ success: true, festival });
 });
 
-// إضافة عرض منتج في المهرجان (بأي سعر - حرية كاملة)
 app.post('/api/festivals/:id/products', async (req, res) => {
     const { accessToken, product } = req.body;
     if (!accessToken || !product) {
@@ -533,4 +497,44 @@ app.post('/api/festivals/:id/products', async (req, res) => {
     }
 
     const user = await verifyUser(accessToken);
-    if (!user) retur
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const festival = db.festivals.find(f => f.id === req.params.id);
+    if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
+    if (festival.status !== 'APPROVED' && festival.status !== 'ACTIVE') {
+        return res.status(400).json({ error: 'المهرجان غير مفعّل' });
+    }
+
+    const newOffer = {
+        id: `offer_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        sellerId: user.uid,
+        sellerName: user.username,
+        name: product.name,
+        description: product.description || '',
+        category: product.category || 'others',
+        pricePi: parseFloat(product.pricePi) || 0,
+        quantity: parseInt(product.quantity) || 1,
+        status: 'AVAILABLE',
+        createdAt: new Date().toISOString()
+    };
+
+    festival.products.push(newOffer);
+    res.json({ success: true, offer: newOffer });
+});
+
+app.delete('/api/festivals/:id/products/:offerId', async (req, res) => {
+    const { accessToken } = req.body;
+    if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
+
+    const user = await verifyUser(accessToken);
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const festival = db.festivals.find(f => f.id === req.params.id);
+    if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
+    const index = festival.products.findIndex(p => p.id === req.params.offerId);
+    if (index === -1) return res.status(404).json({ error: 'Offer not found' });
+
+    const offer = festival.products[index];
+    if (offer.sellerId !== user.uid && !festival.editors.includes(user.ui
