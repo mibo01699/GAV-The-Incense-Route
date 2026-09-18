@@ -20,7 +20,9 @@ async function verifyUser(accessToken) {
 
 function setupFestivalRoutes(db) {
 
+    // ============================================
     // إنشاء مهرجان
+    // ============================================
     router.post('/', async (req, res) => {
         const accessToken = req.body.accessToken;
         const festival = req.body.festival;
@@ -46,6 +48,7 @@ function setupFestivalRoutes(db) {
             editorNames: [user.username],
             maxEditors: 5,
             products: [],
+            exchanges: [],      // سجل الصفقات المكتملة
             status: 'PENDING',
             createdAt: new Date().toISOString()
         };
@@ -54,7 +57,9 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festival: newFestival });
     });
 
+    // ============================================
     // قائمة المهرجانات المعتمدة
+    // ============================================
     router.get('/', (req, res) => {
         let filtered = db.festivals.filter(f => f.status !== 'PENDING');
         if (req.query.status) filtered = filtered.filter(f => f.status === req.query.status);
@@ -63,7 +68,9 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festivals: filtered, count: filtered.length });
     });
 
+    // ============================================
     // مهرجاناتي
+    // ============================================
     router.get('/my/:uid', (req, res) => {
         const uid = req.params.uid;
         const myFestivals = db.festivals.filter(f =>
@@ -72,14 +79,79 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festivals: myFestivals });
     });
 
-    // تفاصيل مهرجان
+    // ============================================
+    // سجل المهرجانات (Log - ملخص لكل مهرجان)
+    // ============================================
+    router.get('/log/all', (req, res) => {
+        const log = db.festivals
+            .filter(f => f.status === 'APPROVED' || f.status === 'ACTIVE' || f.status === 'ENDED')
+            .map(f => {
+                const exchanges = f.exchanges || [];
+                const totalTransactions = exchanges.length;
+                const totalPiValue = exchanges.reduce((sum, e) => sum + (e.piAmount || 0), 0);
+                const totalUSDValue = exchanges.reduce((sum, e) => sum + (e.usdValue || 0), 0);
+
+                // تجميع الفئات المباعة
+                const categoriesSold = {};
+                exchanges.forEach(function(e) {
+                    const cat = e.category || 'others';
+                    categoriesSold[cat] = (categoriesSold[cat] || 0) + 1;
+                });
+
+                return {
+                    id: f.id,
+                    title: f.title,
+                    location: f.location,
+                    country: f.country,
+                    region: f.region,
+                    status: f.status,
+                    creatorName: f.creatorName,
+                    editorsCount: f.editors.length - 1,
+                    productsOffered: f.products.length,
+                    summary: {
+                        totalTransactions: totalTransactions,
+                        totalPiValue: parseFloat(totalPiValue.toFixed(10)),
+                        totalUSDValue: parseFloat(totalUSDValue.toFixed(2)),
+                        categoriesSold: categoriesSold
+                    },
+                    startDate: f.startDate,
+                    endDate: f.endDate,
+                    createdAt: f.createdAt
+                };
+            })
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json({
+            success: true,
+            totalFestivals: log.length,
+            grandTotalTransactions: log.reduce((sum, f) => sum + f.summary.totalTransactions, 0),
+            grandTotalPiValue: parseFloat(log.reduce((sum, f) => sum + f.summary.totalPiValue, 0).toFixed(10)),
+            grandTotalUSDValue: parseFloat(log.reduce((sum, f) => sum + f.summary.totalUSDValue, 0).toFixed(2)),
+            festivals: log
+        });
+    });
+
+    // ============================================
+    // تفاصيل مهرجان (مع السجل)
+    // ============================================
     router.get('/:id', (req, res) => {
         const festival = db.festivals.find(f => f.id === req.params.id);
         if (!festival) return res.status(404).json({ error: 'Festival not found' });
-        res.json({ success: true, festival: festival });
+
+        // إضافة ملخص
+        const exchanges = festival.exchanges || [];
+        const summary = {
+            totalTransactions: exchanges.length,
+            totalPiValue: parseFloat(exchanges.reduce((sum, e) => sum + (e.piAmount || 0), 0).toFixed(10)),
+            totalUSDValue: parseFloat(exchanges.reduce((sum, e) => sum + (e.usdValue || 0), 0).toFixed(2))
+        };
+
+        res.json({ success: true, festival: festival, summary: summary });
     });
 
+    // ============================================
     // تعديل مهرجان
+    // ============================================
     router.put('/:id', async (req, res) => {
         const accessToken = req.body.accessToken;
         const updates = req.body.updates;
@@ -105,7 +177,9 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festival: festival });
     });
 
+    // ============================================
     // إضافة محرر (حتى 5)
+    // ============================================
     router.post('/:id/add-editor', async (req, res) => {
         const accessToken = req.body.accessToken;
         const editorUid = req.body.editorUid;
@@ -134,7 +208,9 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festival: festival });
     });
 
+    // ============================================
     // الموافقة (Admin)
+    // ============================================
     router.post('/:id/approve', (req, res) => {
         if (req.body.adminKey !== 'ae-admin-2026') {
             return res.status(403).json({ error: 'Invalid admin key' });
@@ -148,7 +224,9 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, festival: festival });
     });
 
-    // إضافة عرض منتج في المهرجان (حرية كاملة في التسعير)
+    // ============================================
+    // إضافة عرض منتج (حرية كاملة في التسعير)
+    // ============================================
     router.post('/:id/products', async (req, res) => {
         const accessToken = req.body.accessToken;
         const product = req.body.product;
@@ -182,7 +260,60 @@ function setupFestivalRoutes(db) {
         res.json({ success: true, offer: newOffer });
     });
 
+    // ============================================
+    // تنفيذ مقايضة (Exchange)
+    // ============================================
+    router.post('/:id/exchange', async (req, res) => {
+        const accessToken = req.body.accessToken;
+        const offerId = req.body.offerId;
+        const piAmount = parseFloat(req.body.piAmount);
+        if (!accessToken || !offerId || !piAmount) {
+            return res.status(400).json({ error: 'accessToken, offerId, piAmount required' });
+        }
+
+        const user = await verifyUser(accessToken);
+        if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+        const festival = db.festivals.find(f => f.id === req.params.id);
+        if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
+        const offer = festival.products.find(p => p.id === offerId);
+        if (!offer) return res.status(404).json({ error: 'Offer not found' });
+        if (offer.status !== 'AVAILABLE') {
+            return res.status(400).json({ error: 'العرض غير متاح' });
+        }
+
+        // تسجيل المقايضة
+        const exchange = {
+            id: 'exc_' + Date.now(),
+            festivalId: festival.id,
+            offerId: offerId,
+            buyerId: user.uid,
+            buyerName: user.username,
+            sellerId: offer.sellerId,
+            sellerName: offer.sellerName,
+            productName: offer.name,
+            category: offer.category,
+            piAmount: piAmount,
+            usdValue: parseFloat((piAmount * 0.63).toFixed(2)),  // قيمة تقديرية بـ AMM
+            status: 'COMPLETED',
+            timestamp: new Date().toISOString()
+        };
+
+        if (!festival.exchanges) festival.exchanges = [];
+        festival.exchanges.push(exchange);
+
+        // تحديث حالة العرض
+        offer.status = 'SOLD';
+        offer.soldAt = new Date().toISOString();
+        offer.buyerId = user.uid;
+
+        res.json({ success: true, exchange: exchange });
+    });
+
+    // ============================================
     // حذف عرض
+    // ============================================
     router.delete('/:id/products/:offerId', async (req, res) => {
         const accessToken = req.body.accessToken;
         if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
