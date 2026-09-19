@@ -1,10 +1,10 @@
 // ============================================
-// GAV - The Incense Route | Shopping Cart
+// GAV | Shopping Cart v3 (with Wallet Selection)
 // ============================================
 
 let cart = [];
+let pendingPayment = null;
 
-// تحميل السلة من التخزين المحلي
 function loadCart() {
     try {
         const saved = localStorage.getItem('gav_cart');
@@ -14,22 +14,18 @@ function loadCart() {
     }
 }
 
-// حفظ السلة
 function saveCart() {
     localStorage.setItem('gav_cart', JSON.stringify(cart));
 }
 
-// ============================================
-// إضافة منتج للسلة
-// ============================================
 function addToCart(productId) {
-    const product = allProducts.find(p => p.id === productId);
+    const product = allProducts.find(function(p) { return p.id === productId; });
     if (!product) {
         alert('المنتج غير موجود');
         return;
     }
 
-    const existing = cart.find(item => item.productId === productId);
+    const existing = cart.find(function(item) { return item.productId === productId; });
     if (existing) {
         existing.quantity += 1;
     } else {
@@ -47,12 +43,9 @@ function addToCart(productId) {
 
     saveCart();
     updateCartBadge();
-    alert(`✅ تمت إضافة "${product.name}" إلى السلة`);
+    alert('✅ تمت إضافة "' + product.name + '" إلى السلة');
 }
 
-// ============================================
-// عرض السلة
-// ============================================
 function renderCart() {
     const container = document.getElementById('cart-items');
     const summary = document.getElementById('cart-summary');
@@ -68,7 +61,7 @@ function renderCart() {
     let totalPi = 0;
     let totalYER = 0;
 
-    cart.forEach((item, index) => {
+    cart.forEach(function(item, index) {
         totalPi += (item.pricePi * item.quantity);
         totalYER += (item.priceYER * item.quantity);
 
@@ -78,9 +71,9 @@ function renderCart() {
             <div class="cart-item-info">
                 <div class="cart-item-name">${escapeHtml(item.name)}</div>
                 <div class="cart-item-price">
-                    ${item.pricePi > 0 ? `${item.pricePi.toFixed(2)} Pi` : ''}
+                    ${item.pricePi > 0 ? item.pricePi.toFixed(4) + ' Pi' : ''}
                     ${item.pricePi > 0 && item.priceYER > 0 ? ' + ' : ''}
-                    ${item.priceYER > 0 ? `${item.priceYER.toFixed(0)} YER` : ''}
+                    ${item.priceYER > 0 ? item.priceYER.toFixed(0) + ' YER' : ''}
                     × ${item.quantity}
                 </div>
             </div>
@@ -94,17 +87,14 @@ function renderCart() {
         const totalEl = document.getElementById('cart-total-amount');
         if (totalEl) {
             let totalText = '';
-            if (totalPi > 0) totalText += `${totalPi.toFixed(2)} Pi`;
+            if (totalPi > 0) totalText += totalPi.toFixed(4) + ' Pi';
             if (totalPi > 0 && totalYER > 0) totalText += ' + ';
-            if (totalYER > 0) totalText += `${totalYER.toFixed(0)} YER`;
+            if (totalYER > 0) totalText += totalYER.toFixed(0) + ' YER';
             totalEl.textContent = totalText || '0';
         }
     }
 }
 
-// ============================================
-// حذف من السلة
-// ============================================
 function removeFromCart(index) {
     if (index < 0 || index >= cart.length) return;
     cart.splice(index, 1);
@@ -113,9 +103,6 @@ function removeFromCart(index) {
     renderCart();
 }
 
-// ============================================
-// تفريغ السلة
-// ============================================
 function clearCart() {
     if (cart.length === 0) return;
     if (confirm('هل تريد إفراغ السلة؟')) {
@@ -126,14 +113,11 @@ function clearCart() {
     }
 }
 
-// ============================================
-// شارة السلة
-// ============================================
 function updateCartBadge() {
     const nav = document.querySelector('[data-page="cart"]');
     if (!nav) return;
 
-    const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const count = cart.reduce(function(sum, item) { return sum + item.quantity; }, 0);
     let badge = nav.querySelector('.cart-badge');
 
     if (count > 0) {
@@ -151,9 +135,9 @@ function updateCartBadge() {
 }
 
 // ============================================
-// إتمام الدفع
+// نافذة اختيار المحفظة
 // ============================================
-async function checkout() {
+function openWalletModal() {
     if (!currentUser) {
         alert('يجب تسجيل الدخول أولاً');
         return;
@@ -163,31 +147,84 @@ async function checkout() {
         return;
     }
 
-    // حساب الإجمالي
-    const totalPi = cart.reduce((sum, item) => sum + (item.pricePi * item.quantity), 0);
-    const totalYER = cart.reduce((sum, item) => sum + (item.priceYER * item.quantity), 0);
+    const totalPi = cart.reduce(function(sum, item) { return sum + (item.pricePi * item.quantity); }, 0);
+    const totalYER = cart.reduce(function(sum, item) { return sum + (item.priceYER * item.quantity); }, 0);
 
     if (totalPi === 0 && totalYER === 0) {
         alert('لا يوجد مبلغ للدفع');
         return;
     }
 
-    if (!confirm(`سيتم دفع:\n${totalPi.toFixed(2)} Pi\n${totalYER.toFixed(0)} YER\n\nهل تريد المتابعة؟`)) {
-        return;
+    pendingPayment = {
+        totalPi: totalPi,
+        totalYER: totalYER
+    };
+
+    const bigishBalEl = document.getElementById('wallet-bigish-balance');
+    const piAmountEl = document.getElementById('wallet-pi-amount');
+    const totalEl = document.getElementById('wallet-total');
+
+    const piBal = document.getElementById('pi-balance');
+    const yerBal = document.getElementById('yer-balance');
+
+    if (bigishBalEl && piBal && yerBal) {
+        bigishBalEl.textContent = piBal.textContent + ' Pi | ' + yerBal.textContent + ' YER';
     }
 
-    // الدفع لكل منتج على حدة
+    if (piAmountEl) {
+        piAmountEl.textContent = totalPi.toFixed(4) + ' Pi';
+    }
+
+    if (totalEl) {
+        let text = '';
+        if (totalPi > 0) text += totalPi.toFixed(4) + ' Pi';
+        if (totalPi > 0 && totalYER > 0) text += ' + ';
+        if (totalYER > 0) text += totalYER.toFixed(0) + ' YER';
+        totalEl.textContent = text || '0';
+    }
+
+    const modal = document.getElementById('wallet-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeWalletModal() {
+    const modal = document.getElementById('wallet-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+function selectWallet(walletType) {
+    closeWalletModal();
+
+    if (walletType === 'bigish') {
+        checkoutWithBigishYer();
+    } else if (walletType === 'pi-browser') {
+        checkoutWithPiBrowser();
+    }
+}
+
+// ============================================
+// الدفع عبر BIGISH-YER
+// ============================================
+async function checkoutWithBigishYer() {
     const btn = document.querySelector('#cart-summary .btn-primary');
     if (btn) {
         btn.disabled = true;
-        btn.textContent = 'جارٍ الدفع...';
+        btn.textContent = 'جارٍ الدفع عبر BIGISH-YER...';
     }
 
     try {
         let successCount = 0;
+        let pendingCount = 0;
         let failCount = 0;
 
-        for (const item of cart) {
+        for (let i = 0; i < cart.length; i++) {
+            const item = cart[i];
             try {
                 const res = await fetch('/api/checkout', {
                     method: 'POST',
@@ -197,25 +234,30 @@ async function checkout() {
                         productId: item.productId,
                         piAmount: item.pricePi * item.quantity,
                         yerAmount: item.priceYER * item.quantity,
-                        quantity: item.quantity
+                        quantity: item.quantity,
+                        walletType: 'bigish-yer'
                     })
                 });
 
                 const data = await res.json();
                 if (data.success) {
-                    successCount++;
+                    if (data.order.status === 'PAID') successCount++;
+                    else if (data.order.status === 'PENDING') pendingCount++;
                 } else {
                     failCount++;
-                    console.error('Order failed:', data.error);
                 }
             } catch (e) {
                 failCount++;
-                console.error('Order exception:', e);
             }
         }
 
-        if (successCount > 0) {
-            alert(`✅ تمت ${successCount} عملية بنجاح${failCount > 0 ? `\n⚠️ فشلت ${failCount} عملية` : ''}`);
+        let message = '';
+        if (successCount > 0) message += '✅ ' + successCount + ' طلب مدفوع\n';
+        if (pendingCount > 0) message += '⏳ ' + pendingCount + ' طلب قيد المعالجة\n';
+        if (failCount > 0) message += '❌ ' + failCount + ' طلب فشل';
+
+        if (successCount + pendingCount > 0) {
+            alert(message);
             cart = [];
             saveCart();
             updateCartBadge();
@@ -223,7 +265,7 @@ async function checkout() {
             loadBalanceFromBIGISHYER();
             refreshOrders();
         } else {
-            alert('❌ فشلت جميع العمليات');
+            alert('❌ فشلت جميع العمليات\n' + message);
         }
     } catch (err) {
         alert('خطأ: ' + err.message);
@@ -236,9 +278,97 @@ async function checkout() {
 }
 
 // ============================================
-// تحميل عند البدء
+// الدفع عبر Pi Browser
 // ============================================
-document.addEventListener('DOMContentLoaded', () => {
+async function checkoutWithPiBrowser() {
+    if (!pendingPayment) return;
+
+    if (pendingPayment.totalPi <= 0) {
+        alert('⚠️ الدفع عبر Pi Browser يتطلب حصة Pi أكبر من 0');
+        return;
+    }
+
+    const btn = document.querySelector('#cart-summary .btn-primary');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الدفع عبر Pi...';
+    }
+
+    try {
+        await Pi.createPayment({
+            amount: pendingPayment.totalPi,
+            memo: 'دفع في GAV (عبر Pi Browser)',
+            metadata: {
+                type: 'gav_pi_browser_payment',
+                totalYer: pendingPayment.totalYER,
+                items: cart.map(function(i) { return i.productId; })
+            }
+        }, {
+            onReadyForServerApproval: async function(paymentId) {
+                try {
+                    await fetch('/api/payments/approve', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ paymentId: paymentId })
+                    });
+                } catch (e) {
+                    console.error('Approve error:', e);
+                }
+            },
+            onReadyForServerCompletion: async function(paymentId, txid) {
+                try {
+                    const res = await fetch('/api/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            accessToken: currentUser.accessToken,
+                            productId: cart[0].productId,
+                            piAmount: pendingPayment.totalPi,
+                            yerAmount: pendingPayment.totalYER,
+                            quantity: 1,
+                            walletType: 'pi-browser',
+                            paymentId: paymentId,
+                            txid: txid
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert('✅ تم الدفع عبر Pi Browser بنجاح!');
+                        cart = [];
+                        saveCart();
+                        updateCartBadge();
+                        renderCart();
+                        refreshOrders();
+                    }
+                } catch (e) {
+                    console.error('Complete error:', e);
+                }
+            },
+            onCancel: function(paymentId) {
+                alert('تم إلغاء الدفع');
+            },
+            onError: function(error) {
+                alert('خطأ: ' + (error.message || 'غير معروف'));
+            }
+        });
+    } catch (err) {
+        alert('خطأ: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '💳 إتمام الدفع';
+        }
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
     loadCart();
     renderCart();
     updateCartBadge();
