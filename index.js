@@ -10,9 +10,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ============================================
-// Rates
-// ============================================
 const RATES = {
     piGcvUsd: 314159,
     piAmmUsd: 0.63,
@@ -20,18 +17,12 @@ const RATES = {
     priceCapPercent: 15
 };
 
-// ============================================
-// Database
-// ============================================
 const db = {
     products: [],
     orders: [],
     festivals: []
 };
 
-// ============================================
-// Categories (34 قسماً)
-// ============================================
 const CATEGORIES = [
     { id: 'incense', name: 'البخور والعطور', icon: '🌿' },
     { id: 'luban', name: 'البان', icon: '🪔' },
@@ -69,9 +60,6 @@ const CATEGORIES = [
     { id: 'others', name: 'أخرى', icon: '📦' }
 ];
 
-// ============================================
-// Helpers
-// ============================================
 async function verifyUser(accessToken) {
     try {
         const res = await fetch(BIGISH_YER_URL + '/api/auth', {
@@ -87,9 +75,6 @@ async function verifyUser(accessToken) {
     }
 }
 
-// ============================================
-// Health & Rates & Categories
-// ============================================
 app.get('/api/health', function(req, res) {
     res.json({
         service: 'gav-the-incense-route',
@@ -112,9 +97,6 @@ app.get('/api/categories', function(req, res) {
     res.json({ success: true, categories: CATEGORIES, count: CATEGORIES.length });
 });
 
-// ============================================
-// Products
-// ============================================
 app.get('/api/products', function(req, res) {
     let filtered = db.products.slice();
     if (req.query.category) {
@@ -182,9 +164,6 @@ app.delete('/api/products/:id', async function(req, res) {
     res.json({ success: true });
 });
 
-// ============================================
-// Checkout
-// ============================================
 app.post('/api/checkout', async function(req, res) {
     const accessToken = req.body.accessToken;
     const productId = req.body.productId;
@@ -237,9 +216,6 @@ app.get('/api/orders/user/:uid', function(req, res) {
     res.json({ success: true, orders: orders });
 });
 
-// ============================================
-// Converter
-// ============================================
 app.post('/api/converter', function(req, res) {
     const productUSD = parseFloat(req.body.productUSD);
     const referenceSource = req.body.referenceSource;
@@ -277,9 +253,6 @@ app.post('/api/converter', function(req, res) {
     });
 });
 
-// ============================================
-// Merchant Stats
-// ============================================
 app.get('/api/merchant/stats/:uid', function(req, res) {
     const uid = req.params.uid;
     const myProducts = db.products.filter(function(p) { return p.merchantId === uid; });
@@ -298,11 +271,6 @@ app.get('/api/merchant/stats/:uid', function(req, res) {
     });
 });
 
-// ============================================
-// FESTIVALS
-// ============================================
-
-// إنشاء مهرجان
 app.post('/api/festivals', async function(req, res) {
     const accessToken = req.body.accessToken;
     const festival = req.body.festival;
@@ -336,14 +304,12 @@ app.post('/api/festivals', async function(req, res) {
     res.json({ success: true, festival: newFestival });
 });
 
-// قائمة المهرجانات (المعتمدة)
 app.get('/api/festivals', function(req, res) {
     let filtered = db.festivals.filter(function(f) { return f.status !== 'PENDING'; });
     filtered.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
     res.json({ success: true, festivals: filtered, count: filtered.length });
 });
 
-// سجل المهرجانات (يجب أن يأتي قبل :id)
 app.get('/api/festivals/log/all', function(req, res) {
     const log = db.festivals
         .filter(function(f) { return f.status !== 'PENDING'; })
@@ -351,7 +317,6 @@ app.get('/api/festivals/log/all', function(req, res) {
             const exchanges = f.exchanges || [];
             const totalPiValue = exchanges.reduce(function(sum, e) { return sum + (e.piAmount || 0); }, 0);
             const totalUSDValue = exchanges.reduce(function(sum, e) { return sum + (e.usdValue || 0); }, 0);
-
             const categoriesSold = {};
             exchanges.forEach(function(e) {
                 const cat = e.category || 'others';
@@ -390,7 +355,6 @@ app.get('/api/festivals/log/all', function(req, res) {
     });
 });
 
-// مهرجاناتي
 app.get('/api/festivals/my/:uid', function(req, res) {
     const uid = req.params.uid;
     const myFestivals = db.festivals.filter(function(f) {
@@ -399,7 +363,6 @@ app.get('/api/festivals/my/:uid', function(req, res) {
     res.json({ success: true, festivals: myFestivals });
 });
 
-// تفاصيل مهرجان
 app.get('/api/festivals/:id', function(req, res) {
     const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
@@ -414,7 +377,6 @@ app.get('/api/festivals/:id', function(req, res) {
     res.json({ success: true, festival: festival, summary: summary });
 });
 
-// الموافقة على مهرجان (Admin)
 app.post('/api/festivals/:id/approve', function(req, res) {
     if (req.body.adminKey !== 'ae-admin-2026') {
         return res.status(403).json({ error: 'Invalid admin key' });
@@ -428,7 +390,6 @@ app.post('/api/festivals/:id/approve', function(req, res) {
     res.json({ success: true, festival: festival });
 });
 
-// إضافة عرض منتج
 app.post('/api/festivals/:id/products', async function(req, res) {
     const accessToken = req.body.accessToken;
     const product = req.body.product;
@@ -462,7 +423,6 @@ app.post('/api/festivals/:id/products', async function(req, res) {
     res.json({ success: true, offer: newOffer });
 });
 
-// تنفيذ مقايضة
 app.post('/api/festivals/:id/exchange', async function(req, res) {
     const accessToken = req.body.accessToken;
     const offerId = req.body.offerId;
@@ -506,7 +466,6 @@ app.post('/api/festivals/:id/exchange', async function(req, res) {
     res.json({ success: true, exchange: exchange });
 });
 
-// حذف عرض
 app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
     const accessToken = req.body.accessToken;
     if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
@@ -529,9 +488,32 @@ app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
     res.json({ success: true });
 });
 
-// ============================================
-// Root
-// ============================================
 app.get('/api', function(req, res) {
     res.json({
-        message: '🚀 GAV API
+        message: 'GAV API',
+        version: '3.0.0',
+        features: {
+            priceCap: '15%',
+            barterFestivals: 'enabled'
+        },
+        categories: CATEGORIES.length,
+        products: db.products.length,
+        festivals: db.festivals.length
+    });
+});
+
+app.get('/', function(req, res) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.use(function(req, res) {
+    res.status(404).json({ error: 'Not Found' });
+});
+
+if (require.main === module) {
+    app.listen(PORT, function() {
+        console.log('GAV v3.0.0 running on port ' + PORT);
+    });
+}
+
+module.exports = app;
