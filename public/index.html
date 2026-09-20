@@ -12,6 +12,8 @@
         #calculator-modal { display: none; }
         #calculator-fab { display: none; }
         #wallet-modal { display: none; }
+        #transactions-modal { display: none; }
+        #transactions-fab { display: none; }
     </style>
 </head>
 <body>
@@ -43,7 +45,11 @@
     </button>
 </nav>
 
+<!-- ============================================ -->
+<!-- الأزرار العائمة -->
+<!-- ============================================ -->
 <button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
+<button id="transactions-fab" class="calculator-fab" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
 
 <!-- ============================================ -->
 <!-- نافذة الحاسبة الذكية -->
@@ -85,6 +91,31 @@
                     <div class="calc-result-note">📈 50% Pi + 50% YER (حسب سعر AMM الحي)</div>
                 </div>
                 <button class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">📋 تطبيق على المنتج</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- نافذة سجل المعاملات -->
+<!-- ============================================ -->
+<div id="transactions-modal" class="calculator-modal">
+    <div class="calculator-sheet">
+        <div class="calculator-header">
+            <h3>🧾 سجل المعاملات</h3>
+            <button class="calculator-close" onclick="closeTransactionsLog()">✕</button>
+        </div>
+        <div class="calculator-body">
+            <div id="tx-summary"></div>
+
+            <div class="filter-buttons" style="margin-top:16px;">
+                <button class="filter-btn tx-filter-btn active" data-filter="all" onclick="filterTransactions('all')">الكل</button>
+                <button class="filter-btn tx-filter-btn" data-filter="PRODUCT_SALE" onclick="filterTransactions('PRODUCT_SALE')">🛒 المنتجات</button>
+                <button class="filter-btn tx-filter-btn" data-filter="FESTIVAL_EXCHANGE" onclick="filterTransactions('FESTIVAL_EXCHANGE')">🎪 المهرجانات</button>
+            </div>
+
+            <div id="tx-list" style="margin-top:12px;">
+                <p class="empty-state">جارٍ التحميل...</p>
             </div>
         </div>
     </div>
@@ -326,6 +357,7 @@
 <script src="js/merchant.js"></script>
 <script src="js/converter.js"></script>
 <script src="js/festivals.js"></script>
+<script src="js/transactions.js"></script>
 
 </body>
 </html>
