@@ -1,38 +1,30 @@
 // ============================================
-// GAV - The Incense Route | Authentication + Navigation v2
+// GAV | Authentication + Navigation v3
 // ============================================
 
 let currentUser = null;
 const BIGISH_YER_URL = 'https://bigish-yer.vercel.app';
 
-// ============================================
-// دالة التنقل بين الصفحات (محصّنة)
-// ============================================
 function showPage(pageName) {
     try {
-        // إخفاء جميع الصفحات
-        const allPages = document.querySelectorAll('.page');
-        allPages.forEach(page => {
+        document.querySelectorAll('.page').forEach(function(page) {
             page.classList.remove('active');
-            page.style.display = 'none'; // إجبار الإخفاء
+            page.style.display = 'none';
         });
 
-        // إظهار الصفحة المطلوبة
         const targetPage = document.getElementById('page-' + pageName);
         if (targetPage) {
             targetPage.classList.add('active');
             targetPage.style.display = 'block';
         }
 
-        // تحديث حالة أزرار التنقل
-        document.querySelectorAll('.nav-btn').forEach(btn => {
+        document.querySelectorAll('.nav-btn').forEach(function(btn) {
             btn.classList.remove('active');
             if (btn.dataset.page === pageName) {
                 btn.classList.add('active');
             }
         });
 
-        // تحميل بيانات خاصة بكل صفحة
         if (pageName === 'home') {
             if (typeof loadBalanceFromBIGISHYER === 'function') loadBalanceFromBIGISHYER();
             if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
@@ -44,6 +36,10 @@ function showPage(pageName) {
             if (typeof loadMerchantStats === 'function') loadMerchantStats();
             if (typeof loadMyProducts === 'function') loadMyProducts();
         }
+        if (pageName === 'festivals') {
+            if (typeof loadFestivals === 'function') loadFestivals();
+            if (typeof loadMyFestivals === 'function') loadMyFestivals();
+        }
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -51,9 +47,6 @@ function showPage(pageName) {
     }
 }
 
-// ============================================
-// تسجيل الدخول
-// ============================================
 async function loginWithPi() {
     const btn = document.getElementById('login-btn');
     const errorDiv = document.getElementById('login-error');
@@ -68,9 +61,7 @@ async function loginWithPi() {
             onIncompletePaymentFound
         );
 
-        console.log("✅ Pi Auth success:", auth);
-
-        const response = await fetch(`${BIGISH_YER_URL}/api/auth`, {
+        const response = await fetch(BIGISH_YER_URL + '/api/auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ accessToken: auth.accessToken })
@@ -96,7 +87,7 @@ async function loginWithPi() {
         onLoginSuccess(currentUser);
 
     } catch (err) {
-        console.error("❌ Login error:", err);
+        console.error("Login error:", err);
         errorDiv.textContent = 'فشل تسجيل الدخول: ' + err.message;
         errorDiv.style.display = 'block';
     } finally {
@@ -105,59 +96,42 @@ async function loginWithPi() {
     }
 }
 
-// ============================================
-// معالجة نجاح تسجيل الدخول
-// ============================================
 function onLoginSuccess(user) {
-    // تحديث الشريط العلوي
     document.getElementById('username').textContent = user.username;
     document.getElementById('logout-btn').style.display = 'inline-block';
-
-    // تحديث بيانات المستخدم
     document.getElementById('user-name').textContent = user.username;
     document.getElementById('user-id').textContent = user.uid;
 
-    // ✅ إخفاء صفحة تسجيل الدخول بشكل صريح
     const loginPage = document.getElementById('page-login');
     if (loginPage) {
         loginPage.classList.remove('active');
         loginPage.style.display = 'none';
     }
 
-    // ✅ إظهار شريط التنقل
     document.getElementById('bottom-nav').style.display = 'flex';
 
-    // ✅ إظهار الزر العائم 🧮
-    if (typeof showCalculatorFAB === 'function') {
-        showCalculatorFAB();
-    }
+    // إظهار الأزرار العائمة
+    if (typeof showCalculatorFAB === 'function') showCalculatorFAB();
+    const txFab = document.getElementById('transactions-fab');
+    if (txFab) txFab.style.display = 'flex';
 
-    // ✅ عرض الصفحة الرئيسية
     showPage('home');
 
-    // تحميل الأقسام
     if (typeof loadCategories === 'function') loadCategories();
 }
 
-// ============================================
-// معالجة الدفعات غير المكتملة
-// ============================================
 function onIncompletePaymentFound(payment) {
-    console.log("⚠️ Incomplete payment found:", payment);
-    fetch(`${BIGISH_YER_URL}/api/payments/complete`, {
+    fetch(BIGISH_YER_URL + '/api/payments/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             paymentId: payment.identifier,
-            txid: payment.transaction?.txid,
+            txid: payment.transaction ? payment.transaction.txid : null,
             userId: currentUser ? currentUser.uid : null
         })
-    }).catch(err => console.error("Complete payment error:", err));
+    }).catch(function(err) { console.error("Complete payment error:", err); });
 }
 
-// ============================================
-// تسجيل الخروج
-// ============================================
 function logout() {
     if (confirm('هل تريد تسجيل الخروج؟')) {
         localStorage.removeItem('gav_user');
@@ -166,13 +140,11 @@ function logout() {
     }
 }
 
-// ============================================
-// إخفاء الزر العائم عند البدء (يظهر بعد الدخول)
-// ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof hideCalculatorFAB === 'function') {
-        hideCalculatorFAB();
-    }
+    if (typeof hideCalculatorFAB === 'function') hideCalculatorFAB();
+
+    const txFab = document.getElementById('transactions-fab');
+    if (txFab) txFab.style.display = 'none';
 
     const savedUser = localStorage.getItem('gav_user');
     if (savedUser) {
