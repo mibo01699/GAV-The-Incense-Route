@@ -21,7 +21,9 @@ const db = {
     products: [],
     orders: [],
     festivals: [],
-    transactions: []
+    transactions: [],
+    productMessages: [],
+    festivalMessages: []
 };
 
 const CATEGORIES = [
@@ -174,6 +176,37 @@ app.get('/api/products/:id', function(req, res) {
     res.json({ success: true, product: product });
 });
 
+// ============================================
+// رسائل المنتجات
+// ============================================
+app.get('/api/products/:id/messages', function(req, res) {
+    const messages = db.productMessages.filter(function(m) { return m.productId === req.params.id; });
+    messages.sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
+    res.json({ success: true, messages: messages });
+});
+
+app.post('/api/products/:id/messages', async function(req, res) {
+    const accessToken = req.body.accessToken;
+    const text = req.body.text;
+    if (!accessToken || !text) return res.status(400).json({ error: 'accessToken and text required' });
+
+    const user = await verifyUser(accessToken);
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const product = db.products.find(function(p) { return p.id === req.params.id; });
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const msg = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        productId: req.params.id,
+        userId: user.uid,
+        username: user.username,
+        text: text,
+        timestamp: new Date().toISOString()
+    };
+    db.productMessages.push(msg);
+    res.json({ success: true, message: msg });
+});
 app.post('/api/products', async function(req, res) {
     const accessToken = req.body.accessToken;
     const product = req.body.product;
@@ -189,6 +222,10 @@ app.post('/api/products', async function(req, res) {
         merchantId: user.uid,
         merchantName: user.username,
         name: product.name,
+        type: product.type || '',
+        quantity: parseInt(product.quantity) || 1,
+        stock: parseInt(product.stock) || 1,
+        directSaleAddress: product.directSaleAddress || '',
         description: product.description || '',
         category: product.category || 'incense',
         priceUSD: parseFloat(product.priceUSD) || 0,
@@ -201,7 +238,6 @@ app.post('/api/products', async function(req, res) {
             yerAmmUsd: RATES.yerAmmUsd,
             updatedAt: new Date().toISOString()
         },
-        stock: parseInt(product.stock) || 1,
         createdAt: new Date().toISOString(),
         status: 'ACTIVE'
     };
@@ -226,6 +262,7 @@ app.delete('/api/products/:id', async function(req, res) {
     db.products.splice(index, 1);
     res.json({ success: true });
 });
+
 app.post('/api/checkout', async function(req, res) {
     const accessToken = req.body.accessToken;
     const productId = req.body.productId;
@@ -408,7 +445,9 @@ app.get('/api/merchant/stats/:uid', function(req, res) {
         }
     });
 });
-
+// ============================================
+// FESTIVALS
+// ============================================
 app.post('/api/festivals', async function(req, res) {
     const accessToken = req.body.accessToken;
     const festival = req.body.festival;
@@ -426,6 +465,7 @@ app.post('/api/festivals', async function(req, res) {
         title: festival.title || 'مهرجان مقايضة',
         description: festival.description || '',
         location: festival.location || '',
+        directSaleAddress: festival.directSaleAddress || '',
         country: festival.country || '',
         region: festival.region || '',
         startDate: festival.startDate || new Date().toISOString(),
@@ -461,7 +501,6 @@ app.get('/api/festivals/log/all', function(req, res) {
                 const cat = e.category || 'others';
                 categoriesSold[cat] = (categoriesSold[cat] || 0) + 1;
             });
-
             return {
                 id: f.id,
                 title: f.title,
@@ -470,7 +509,6 @@ app.get('/api/festivals/log/all', function(req, res) {
                 region: f.region,
                 status: f.status,
                 creatorName: f.creatorName,
-                editorsCount: f.editors ? f.editors.length - 1 : 0,
                 productsOffered: f.products ? f.products.length : 0,
                 summary: {
                     totalTransactions: exchanges.length,
@@ -502,6 +540,38 @@ app.get('/api/festivals/my/:uid', function(req, res) {
     res.json({ success: true, festivals: myFestivals });
 });
 
+// ============================================
+// رسائل المهرجانات
+// ============================================
+app.get('/api/festivals/:id/messages', function(req, res) {
+    const messages = db.festivalMessages.filter(function(m) { return m.festivalId === req.params.id; });
+    messages.sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
+    res.json({ success: true, messages: messages });
+});
+
+app.post('/api/festivals/:id/messages', async function(req, res) {
+    const accessToken = req.body.accessToken;
+    const text = req.body.text;
+    if (!accessToken || !text) return res.status(400).json({ error: 'accessToken and text required' });
+
+    const user = await verifyUser(accessToken);
+    if (!user) return res.status(401).json({ error: 'Invalid token' });
+
+    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
+    if (!festival) return res.status(404).json({ error: 'Festival not found' });
+
+    const msg = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        festivalId: req.params.id,
+        userId: user.uid,
+        username: user.username,
+        text: text,
+        timestamp: new Date().toISOString()
+    };
+    db.festivalMessages.push(msg);
+    res.json({ success: true, message: msg });
+});
+
 app.get('/api/festivals/:id', function(req, res) {
     const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
@@ -515,103 +585,8 @@ app.get('/api/festivals/:id', function(req, res) {
 
     res.json({ success: true, festival: festival, summary: summary });
 });
-app.post('/api/festivals/:id/approve', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const adminKey = req.body.adminKey;
 
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    if (adminKey === 'ae-admin-2026') {
-        festival.status = 'APPROVED';
-        festival.approvedAt = new Date().toISOString();
-        festival.approvedBy = 'admin';
-        return res.json({ success: true, festival: festival });
-    }
-
-    if (accessToken) {
-        const user = await verifyUser(accessToken);
-        if (!user) return res.status(401).json({ error: 'Invalid token' });
-        if (festival.creatorId !== user.uid) {
-            return res.status(403).json({ error: 'Only creator can approve' });
-        }
-        festival.status = 'APPROVED';
-        festival.approvedAt = new Date().toISOString();
-        festival.approvedBy = 'creator';
-        return res.json({ success: true, festival: festival });
-    }
-
-    return res.status(400).json({ error: 'accessToken or adminKey required' });
-});
-
-app.post('/api/festivals/:id/vote', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const vote = req.body.vote;
-    if (!accessToken || !vote) {
-        return res.status(400).json({ error: 'accessToken and vote required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-    if (festival.editors.indexOf(user.uid) === -1) {
-        return res.status(403).json({ error: 'Only editors can vote' });
-    }
-
-    if (!festival.votes) festival.votes = [];
-    const existingVote = festival.votes.find(function(v) { return v.userId === user.uid; });
-    if (existingVote) {
-        existingVote.vote = vote;
-        existingVote.timestamp = new Date().toISOString();
-    } else {
-        festival.votes.push({
-            userId: user.uid,
-            username: user.username,
-            vote: vote,
-            timestamp: new Date().toISOString()
-        });
-    }
-
-    const approvals = festival.votes.filter(function(v) { return v.vote === 'approve'; }).length;
-    if (approvals >= 2 && festival.editors.length >= 3) {
-        festival.status = 'APPROVED';
-        festival.approvedAt = new Date().toISOString();
-        festival.approvedBy = 'editors-vote';
-    }
-
-    res.json({ success: true, festival: festival });
-});
-
-app.post('/api/festivals/:id/add-editor', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const editorUid = req.body.editorUid;
-    const editorName = req.body.editorName;
-    if (!accessToken || !editorUid) {
-        return res.status(400).json({ error: 'accessToken and editorUid required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-    if (festival.creatorId !== user.uid) {
-        return res.status(403).json({ error: 'Only creator can add editors' });
-    }
-    if (festival.editors.length >= 6) {
-        return res.status(400).json({ error: 'الحد الأقصى 5 محررين' });
-    }
-    if (festival.editors.indexOf(editorUid) !== -1) {
-        return res.status(400).json({ error: 'Editor already added' });
-    }
-
-    festival.editors.push(editorUid);
-    festival.editorNames.push(editorName || ('User-' + editorUid.slice(0, 6)));
-    res.json({ success: true, festival: festival });
-});
-
+// إضافة عرض منتج - مع الموافقة التلقائية
 app.post('/api/festivals/:id/products', async function(req, res) {
     const accessToken = req.body.accessToken;
     const product = req.body.product;
@@ -624,8 +599,14 @@ app.post('/api/festivals/:id/products', async function(req, res) {
 
     const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
-    if (festival.status !== 'APPROVED' && festival.status !== 'ACTIVE') {
-        return res.status(400).json({ error: 'المهرجان غير مفعّل' });
+
+    // ✅ الموافقة التلقائية عند إضافة أول عرض
+    let autoApproved = false;
+    if (festival.status === 'PENDING') {
+        festival.status = 'APPROVED';
+        festival.approvedAt = new Date().toISOString();
+        festival.approvedBy = 'auto-first-offer';
+        autoApproved = true;
     }
 
     const newOffer = {
@@ -633,16 +614,18 @@ app.post('/api/festivals/:id/products', async function(req, res) {
         sellerId: user.uid,
         sellerName: user.username,
         name: product.name,
+        type: product.type || '',
         description: product.description || '',
         category: product.category || 'others',
         pricePi: parseFloat(product.pricePi) || 0,
         quantity: parseInt(product.quantity) || 1,
+        directSaleAddress: product.directSaleAddress || '',
         status: 'AVAILABLE',
         createdAt: new Date().toISOString()
     };
 
     festival.products.push(newOffer);
-    res.json({ success: true, offer: newOffer });
+    res.json({ success: true, offer: newOffer, autoApproved: autoApproved });
 });
 
 app.post('/api/festivals/:id/exchange', async function(req, res) {
@@ -736,17 +719,18 @@ app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
 app.get('/api', function(req, res) {
     res.json({
         message: 'GAV API',
-        version: '4.0.0',
+        version: '5.0.0',
         features: {
             priceCap: '15%',
             barterFestivals: 'enabled',
             transactionsLog: 'enabled',
-            piBrowserPayments: PI_API_KEY !== ''
+            piBrowserPayments: PI_API_KEY !== '',
+            messages: 'enabled',
+            autoApproval: 'enabled'
         },
         categories: CATEGORIES.length,
         products: db.products.length,
-        festivals: db.festivals.length,
-        transactions: db.transactions.length
+        festivals: db.festivals.length
     });
 });
 
@@ -760,7 +744,7 @@ app.use(function(req, res) {
 
 if (require.main === module) {
     app.listen(PORT, function() {
-        console.log('GAV v4.0.0 running on port ' + PORT);
+        console.log('GAV v5.0.0 running on port ' + PORT);
     });
 }
 
