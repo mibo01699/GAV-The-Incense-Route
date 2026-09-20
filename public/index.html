@@ -9,11 +9,8 @@
     <style>
         .page { display: none !important; }
         .page.active { display: block !important; }
-        #calculator-modal { display: none; }
-        #calculator-fab { display: none; }
-        #wallet-modal { display: none; }
-        #transactions-modal { display: none; }
-        #transactions-fab { display: none; }
+        .modal-overlay { display: none; }
+        .fab-btn { display: none; }
     </style>
 </head>
 <body>
@@ -45,16 +42,11 @@
     </button>
 </nav>
 
-<!-- ============================================ -->
-<!-- الأزرار العائمة -->
-<!-- ============================================ -->
-<button id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
-<button id="transactions-fab" class="calculator-fab" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
+<button id="calculator-fab" class="calculator-fab fab-btn" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
+<button id="transactions-fab" class="calculator-fab fab-btn" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
 
-<!-- ============================================ -->
-<!-- نافذة الحاسبة الذكية -->
-<!-- ============================================ -->
-<div id="calculator-modal" class="calculator-modal">
+<!-- ============ نافذة الحاسبة الذكية ============ -->
+<div id="calculator-modal" class="calculator-modal modal-overlay">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>🧮 الحاسبة الذكية</h3>
@@ -65,7 +57,6 @@
                 <label>💵 قيمة المنتج $</label>
                 <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
             </div>
-
             <div class="calc-reference-info">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span style="font-size:1.8rem;">📈</span>
@@ -75,9 +66,7 @@
                     </div>
                 </div>
             </div>
-
             <button class="btn-primary" onclick="calculateConversion()" style="margin-top:8px;">⚡ احسب التوزيع</button>
-
             <div id="calc-results" style="display:none;margin-top:16px;">
                 <div class="calc-result-card">
                     <div class="calc-result-row">
@@ -96,10 +85,8 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- نافذة سجل المعاملات -->
-<!-- ============================================ -->
-<div id="transactions-modal" class="calculator-modal">
+<!-- ============ نافذة سجل المعاملات ============ -->
+<div id="transactions-modal" class="calculator-modal modal-overlay">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>🧾 سجل المعاملات</h3>
@@ -107,39 +94,31 @@
         </div>
         <div class="calculator-body">
             <div id="tx-summary"></div>
-
             <div class="filter-buttons" style="margin-top:16px;">
                 <button class="filter-btn tx-filter-btn active" data-filter="all" onclick="filterTransactions('all')">الكل</button>
                 <button class="filter-btn tx-filter-btn" data-filter="PRODUCT_SALE" onclick="filterTransactions('PRODUCT_SALE')">🛒 المنتجات</button>
                 <button class="filter-btn tx-filter-btn" data-filter="FESTIVAL_EXCHANGE" onclick="filterTransactions('FESTIVAL_EXCHANGE')">🎪 المهرجانات</button>
             </div>
-
-            <div id="tx-list" style="margin-top:12px;">
-                <p class="empty-state">جارٍ التحميل...</p>
-            </div>
+            <div id="tx-list" style="margin-top:12px;"><p class="empty-state">جارٍ التحميل...</p></div>
         </div>
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- نافذة اختيار المحفظة للدفع -->
-<!-- ============================================ -->
-<div id="wallet-modal" class="calculator-modal">
+<!-- ============ نافذة اختيار المحفظة ============ -->
+<div id="wallet-modal" class="calculator-modal modal-overlay">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>💳 اختر محفظة الدفع</h3>
             <button class="calculator-close" onclick="closeWalletModal()">✕</button>
         </div>
         <div class="calculator-body">
-            <p style="text-align:center; color:#7f8c8d; margin-bottom:16px;">لديك خياران لإتمام الدفع</p>
-
             <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('bigish')">
-                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
+                <div class="calc-option-content" style="align-items:flex-start; padding:16px;">
                     <div style="display:flex; align-items:center; gap:10px; width:100%;">
                         <span style="font-size:1.8rem;">🦅</span>
                         <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة BIGISH-YER</strong>
-                            <small style="color:#7f8c8d;">دفع هجين (Pi + YER) — رصيد داخلي</small>
+                            <strong style="color:#1a4d2e; display:block;">محفظة BIGISH-YER</strong>
+                            <small style="color:#7f8c8d;">دفع هجين (Pi + YER)</small>
                             <div style="margin-top:8px; font-size:0.8rem; color:#2d7a4a;">
                                 رصيدك: <span id="wallet-bigish-balance">—</span>
                             </div>
@@ -147,26 +126,41 @@
                     </div>
                 </div>
             </label>
-
             <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('pi-browser')">
-                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
+                <div class="calc-option-content" style="align-items:flex-start; padding:16px;">
                     <div style="display:flex; align-items:center; gap:10px; width:100%;">
                         <span style="font-size:1.8rem;">π</span>
                         <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة Pi Browser الرسمية</strong>
-                            <small style="color:#7f8c8d;">دفع مباشر من محفظتك الرسمية على Pi</small>
-                            <div style="margin-top:8px; font-size:0.8rem; color:#7f8c8d;">
+                            <strong style="color:#1a4d2e; display:block;">محفظة Pi Browser الرسمية</strong>
+                            <small style="color:#7f8c8d;">دفع مباشر من محفظتك الرسمية</small>
+                            <div style="margin-top:8px; font-size:0.8rem;">
                                 المبلغ: <span id="wallet-pi-amount">—</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </label>
-
-            <div id="wallet-total-info" style="background:#f0f7f3; padding:12px; border-radius:8px; border-right:3px solid #d4af37; margin-top:12px; text-align:center;">
+            <div style="background:#f0f7f3; padding:12px; border-radius:8px; border-right:3px solid #d4af37; margin-top:12px; text-align:center;">
                 <small style="color:#7f8c8d;">الإجمالي المطلوب:</small>
                 <div id="wallet-total" style="font-weight:700; color:#1a4d2e; font-size:1.1rem; margin-top:4px;">—</div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ نافذة المراسلات ============ -->
+<div id="messages-modal" class="calculator-modal modal-overlay">
+    <div class="calculator-sheet">
+        <div class="calculator-header">
+            <h3 id="messages-title">💬 المراسلات</h3>
+            <button class="calculator-close" onclick="closeMessages()">✕</button>
+        </div>
+        <div class="calculator-body">
+            <div id="messages-list" style="max-height:50vh; overflow-y:auto; margin-bottom:12px;">
+                <p class="empty-state">لا توجد رسائل بعد.</p>
+            </div>
+            <textarea id="message-input" placeholder="اكتب رسالتك..." style="min-height:60px;"></textarea>
+            <button class="btn-primary" onclick="sendMessage()" style="margin-top:8px;">📤 إرسال</button>
         </div>
     </div>
 </div>
@@ -201,7 +195,6 @@
                     <span class="value" id="yer-balance">0.00</span>
                 </div>
             </div>
-            <p class="subtitle" style="margin-top:12px; text-align:center;"><small>الدفع يتم عبر محفظة BIGISH-YER</small></p>
         </div>
         <div class="card">
             <h3>🌿 تصفح الأقسام</h3>
@@ -225,7 +218,7 @@
     <section id="page-festivals" class="page">
         <div class="card">
             <h3>🎪 مهرجانات المقايضة</h3>
-            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة (عبر محفظة Pi Browser)</p>
+            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة</p>
             <button class="btn-primary" onclick="openCreateFestival()" style="margin-top:8px;">➕ إنشاء مهرجان جديد</button>
             <button class="btn-secondary" onclick="loadFestivalLog()" style="margin-top:8px;">📊 سجل المهرجانات</button>
         </div>
@@ -292,7 +285,12 @@
         <div class="card">
             <h3>➕ إضافة منتج جديد</h3>
             <input type="text" id="new-product-name" placeholder="اسم المنتج">
-            <textarea id="new-product-description" placeholder="وصف المنتج" style="margin-top:8px;"></textarea>
+            <input type="text" id="new-product-type" placeholder="النوع / الفئة الفرعية" style="margin-top:8px;">
+            <input type="number" id="new-product-quantity" placeholder="الكمية" step="1" style="margin-top:8px;">
+            <input type="number" id="new-product-stock" placeholder="المخزون" step="1" style="margin-top:8px;">
+            <input type="text" id="new-product-direct-address" placeholder="📍 عنوان البيع المباشر" style="margin-top:8px;">
+            <textarea id="new-product-description" placeholder="وصف إضافي (اختياري)" style="margin-top:8px;"></textarea>
+
             <select id="new-product-category" style="margin-top:8px;">
                 <option value="incense">البخور والعطور</option>
                 <option value="luban">البان</option>
