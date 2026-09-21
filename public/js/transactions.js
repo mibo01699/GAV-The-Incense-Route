@@ -1,12 +1,12 @@
 // ============================================
-// GAV | Transactions Log v1
-// سجل موحد لجميع المعاملات
+// GAV | Transactions Log v2
 // ============================================
 
 let allTransactions = [];
 let currentFilter = 'all';
 
 function openTransactionsLog() {
+    console.log('🧾 openTransactionsLog called');
     if (!currentUser) return alert('يجب تسجيل الدخول أولاً');
 
     const modal = document.getElementById('transactions-modal');
@@ -14,6 +14,8 @@ function openTransactionsLog() {
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         loadTransactions();
+    } else {
+        console.error('❌ transactions-modal not found');
     }
 }
 
@@ -34,14 +36,15 @@ async function loadTransactions() {
 
     try {
         const url = '/api/transactions/all/' + currentUser.uid + '?type=' + currentFilter;
+        console.log('📡 Loading transactions:', url);
         const res = await fetch(url);
         const data = await res.json();
+        console.log('📥 Transactions data:', data);
 
         if (!data.success) throw new Error(data.error || 'فشل التحميل');
 
         allTransactions = data.transactions || [];
 
-        // عرض الملخص
         if (summaryDiv) {
             summaryDiv.innerHTML = `
                 <div class="stats-grid">
@@ -76,7 +79,7 @@ async function loadTransactions() {
         });
 
     } catch (err) {
-        console.error('Transactions error:', err);
+        console.error('❌ Transactions error:', err);
         container.innerHTML = '<p class="empty-state">فشل تحميل السجل.</p>';
     }
 }
@@ -176,7 +179,6 @@ function showTxDetails(tx) {
 function filterTransactions(type) {
     currentFilter = type;
 
-    // تحديث الأزرار
     document.querySelectorAll('.tx-filter-btn').forEach(function(btn) {
         btn.classList.remove('active');
         if (btn.dataset.filter === type) btn.classList.add('active');
@@ -191,9 +193,3 @@ function escapeHtmlTx(text) {
     div.textContent = text;
     return div.innerHTML;
 }
-
-// إغلاق عند النقر خارج النافذة
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('transactions-modal');
-    if (e.target === modal) closeTransactionsLog();
-});
