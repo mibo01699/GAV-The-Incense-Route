@@ -9,8 +9,8 @@
     <style>
         .page { display: none !important; }
         .page.active { display: block !important; }
-        .modal-overlay { display: none; }
-        .fab-btn { display: none; }
+        #calculator-modal, #transactions-modal, #wallet-modal, #messages-modal { display: none; }
+        #calculator-fab, #transactions-fab { display: none; }
     </style>
 </head>
 <body>
@@ -42,22 +42,22 @@
     </button>
 </nav>
 
-<button id="calculator-fab" class="calculator-fab fab-btn" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
-<button id="transactions-fab" class="calculator-fab fab-btn" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
+<button type="button" id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
+<button type="button" id="transactions-fab" class="calculator-fab" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
 
-<!-- ============ نافذة الحاسبة الذكية ============ -->
-<div id="calculator-modal" class="calculator-modal modal-overlay">
+<div id="calculator-modal" class="calculator-modal">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>🧮 الحاسبة الذكية</h3>
-            <button class="calculator-close" onclick="closeCalculator()">✕</button>
+            <button type="button" class="calculator-close" onclick="closeCalculator()">✕</button>
         </div>
         <div class="calculator-body">
             <div class="calc-field">
                 <label>💵 قيمة المنتج $</label>
                 <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
             </div>
-            <div class="calc-reference-info">
+
+            <div class="calc-reference-info" style="background:#f0f7f3; padding:14px; border-radius:10px; border-right:4px solid #2d7a4a; margin-bottom:16px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span style="font-size:1.8rem;">📈</span>
                     <div>
@@ -66,7 +66,9 @@
                     </div>
                 </div>
             </div>
-            <button class="btn-primary" onclick="calculateConversion()" style="margin-top:8px;">⚡ احسب التوزيع</button>
+
+            <button type="button" id="calc-button" class="btn-primary" onclick="calculateConversion()" style="margin-top:8px;">⚡ احسب التوزيع</button>
+
             <div id="calc-results" style="display:none;margin-top:16px;">
                 <div class="calc-result-card">
                     <div class="calc-result-row">
@@ -79,46 +81,50 @@
                     </div>
                     <div class="calc-result-note">📈 50% Pi + 50% YER (حسب سعر AMM الحي)</div>
                 </div>
-                <button class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">📋 تطبيق على المنتج</button>
+                <button type="button" class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">📋 تطبيق على المنتج</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ============ نافذة سجل المعاملات ============ -->
-<div id="transactions-modal" class="calculator-modal modal-overlay">
+<div id="transactions-modal" class="calculator-modal">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>🧾 سجل المعاملات</h3>
-            <button class="calculator-close" onclick="closeTransactionsLog()">✕</button>
+            <button type="button" class="calculator-close" onclick="closeTransactionsLog()">✕</button>
         </div>
         <div class="calculator-body">
             <div id="tx-summary"></div>
+
             <div class="filter-buttons" style="margin-top:16px;">
-                <button class="filter-btn tx-filter-btn active" data-filter="all" onclick="filterTransactions('all')">الكل</button>
-                <button class="filter-btn tx-filter-btn" data-filter="PRODUCT_SALE" onclick="filterTransactions('PRODUCT_SALE')">🛒 المنتجات</button>
-                <button class="filter-btn tx-filter-btn" data-filter="FESTIVAL_EXCHANGE" onclick="filterTransactions('FESTIVAL_EXCHANGE')">🎪 المهرجانات</button>
+                <button type="button" class="filter-btn tx-filter-btn active" data-filter="all" onclick="filterTransactions('all')">الكل</button>
+                <button type="button" class="filter-btn tx-filter-btn" data-filter="PRODUCT_SALE" onclick="filterTransactions('PRODUCT_SALE')">🛒 المنتجات</button>
+                <button type="button" class="filter-btn tx-filter-btn" data-filter="FESTIVAL_EXCHANGE" onclick="filterTransactions('FESTIVAL_EXCHANGE')">🎪 المهرجانات</button>
             </div>
-            <div id="tx-list" style="margin-top:12px;"><p class="empty-state">جارٍ التحميل...</p></div>
+
+            <div id="tx-list" style="margin-top:12px;">
+                <p class="empty-state">جارٍ التحميل...</p>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- ============ نافذة اختيار المحفظة ============ -->
-<div id="wallet-modal" class="calculator-modal modal-overlay">
+<div id="wallet-modal" class="calculator-modal">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3>💳 اختر محفظة الدفع</h3>
-            <button class="calculator-close" onclick="closeWalletModal()">✕</button>
+            <button type="button" class="calculator-close" onclick="closeWalletModal()">✕</button>
         </div>
         <div class="calculator-body">
+            <p style="text-align:center; color:#7f8c8d; margin-bottom:16px;">لديك خياران لإتمام الدفع</p>
+
             <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('bigish')">
-                <div class="calc-option-content" style="align-items:flex-start; padding:16px;">
+                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
                     <div style="display:flex; align-items:center; gap:10px; width:100%;">
                         <span style="font-size:1.8rem;">🦅</span>
                         <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block;">محفظة BIGISH-YER</strong>
-                            <small style="color:#7f8c8d;">دفع هجين (Pi + YER)</small>
+                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة BIGISH-YER</strong>
+                            <small style="color:#7f8c8d;">دفع هجين (Pi + YER) — رصيد داخلي</small>
                             <div style="margin-top:8px; font-size:0.8rem; color:#2d7a4a;">
                                 رصيدك: <span id="wallet-bigish-balance">—</span>
                             </div>
@@ -126,21 +132,23 @@
                     </div>
                 </div>
             </label>
+
             <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('pi-browser')">
-                <div class="calc-option-content" style="align-items:flex-start; padding:16px;">
+                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
                     <div style="display:flex; align-items:center; gap:10px; width:100%;">
                         <span style="font-size:1.8rem;">π</span>
                         <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block;">محفظة Pi Browser الرسمية</strong>
-                            <small style="color:#7f8c8d;">دفع مباشر من محفظتك الرسمية</small>
-                            <div style="margin-top:8px; font-size:0.8rem;">
+                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة Pi Browser الرسمية</strong>
+                            <small style="color:#7f8c8d;">دفع مباشر من محفظتك الرسمية على Pi</small>
+                            <div style="margin-top:8px; font-size:0.8rem; color:#7f8c8d;">
                                 المبلغ: <span id="wallet-pi-amount">—</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </label>
-            <div style="background:#f0f7f3; padding:12px; border-radius:8px; border-right:3px solid #d4af37; margin-top:12px; text-align:center;">
+
+            <div id="wallet-total-info" style="background:#f0f7f3; padding:12px; border-radius:8px; border-right:3px solid #d4af37; margin-top:12px; text-align:center;">
                 <small style="color:#7f8c8d;">الإجمالي المطلوب:</small>
                 <div id="wallet-total" style="font-weight:700; color:#1a4d2e; font-size:1.1rem; margin-top:4px;">—</div>
             </div>
@@ -148,23 +156,21 @@
     </div>
 </div>
 
-<!-- ============ نافذة المراسلات ============ -->
-<div id="messages-modal" class="calculator-modal modal-overlay">
+<div id="messages-modal" class="calculator-modal">
     <div class="calculator-sheet">
         <div class="calculator-header">
             <h3 id="messages-title">💬 المراسلات</h3>
-            <button class="calculator-close" onclick="closeMessages()">✕</button>
+            <button type="button" class="calculator-close" onclick="closeMessages()">✕</button>
         </div>
         <div class="calculator-body">
             <div id="messages-list" style="max-height:50vh; overflow-y:auto; margin-bottom:12px;">
                 <p class="empty-state">لا توجد رسائل بعد.</p>
             </div>
             <textarea id="message-input" placeholder="اكتب رسالتك..." style="min-height:60px;"></textarea>
-            <button class="btn-primary" onclick="sendMessage()" style="margin-top:8px;">📤 إرسال</button>
+            <button type="button" class="btn-primary" onclick="sendMessage()" style="margin-top:8px;">📤 إرسال</button>
         </div>
     </div>
 </div>
-
 <main class="container">
 
     <section id="page-login" class="page active">
@@ -172,7 +178,7 @@
             <h1>🛣️ GAV - طريق البخور</h1>
             <p class="subtitle">منصة التجارة العابرة للحدود</p>
             <p class="description">تبادل السلع التراثية والبخور والعطور عبر منظومة Arabian Eagle</p>
-            <button id="login-btn" class="btn-primary" onclick="loginWithPi()">🚀 تسجيل الدخول بحساب Pi</button>
+            <button type="button" id="login-btn" class="btn-primary" onclick="loginWithPi()">🚀 تسجيل الدخول بحساب Pi</button>
             <div id="login-error" class="error" style="display:none;"></div>
             <div class="status-note"><small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small></div>
         </div>
@@ -195,6 +201,7 @@
                     <span class="value" id="yer-balance">0.00</span>
                 </div>
             </div>
+            <p class="subtitle" style="margin-top:12px; text-align:center;"><small>الدفع يتم عبر محفظة BIGISH-YER</small></p>
         </div>
         <div class="card">
             <h3>🌿 تصفح الأقسام</h3>
@@ -218,14 +225,14 @@
     <section id="page-festivals" class="page">
         <div class="card">
             <h3>🎪 مهرجانات المقايضة</h3>
-            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة</p>
-            <button class="btn-primary" onclick="openCreateFestival()" style="margin-top:8px;">➕ إنشاء مهرجان جديد</button>
-            <button class="btn-secondary" onclick="loadFestivalLog()" style="margin-top:8px;">📊 سجل المهرجانات</button>
+            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة (عبر محفظة Pi Browser)</p>
+            <button type="button" class="btn-primary" onclick="openCreateFestival()" style="margin-top:8px;">➕ إنشاء مهرجان جديد</button>
+            <button type="button" class="btn-secondary" onclick="loadFestivalLog()" style="margin-top:8px;">📊 سجل المهرجانات</button>
         </div>
         <div class="card">
             <h3>🎯 المهرجانات النشطة</h3>
             <div id="festivals-list"><p class="empty-state">لا توجد مهرجانات حالياً.</p></div>
-            <button class="btn-secondary" onclick="loadFestivals()" style="margin-top:12px;">🔄 تحديث</button>
+            <button type="button" class="btn-secondary" onclick="loadFestivals()" style="margin-top:12px;">🔄 تحديث</button>
         </div>
         <div class="card" id="festival-log-card" style="display:none;">
             <h3>📊 سجل المهرجانات</h3>
@@ -246,7 +253,7 @@
                     <span>الإجمالي:</span>
                     <strong id="cart-total-amount">0</strong>
                 </div>
-                <button class="btn-primary" onclick="openWalletModal()" style="margin-top:12px;">💳 إتمام الدفع</button>
+                <button type="button" class="btn-primary" onclick="openWalletModal()" style="margin-top:12px;">💳 إتمام الدفع</button>
             </div>
         </div>
     </section>
@@ -255,7 +262,7 @@
         <div class="card">
             <h3>📋 طلباتي</h3>
             <div id="orders-list"><p class="empty-state">لا توجد طلبات بعد.</p></div>
-            <button class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">🔄 تحديث</button>
+            <button type="button" class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">🔄 تحديث</button>
         </div>
     </section>
 
@@ -335,7 +342,7 @@
             <input type="hidden" id="new-product-reference-source">
             <input type="hidden" id="new-product-pi-ratio">
 
-            <button class="btn-primary" onclick="addProduct()" style="margin-top:12px;">➕ إضافة المنتج</button>
+            <button type="button" class="btn-primary" onclick="addProduct()" style="margin-top:12px;">➕ إضافة المنتج</button>
         </div>
 
         <div class="card">
