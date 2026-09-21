@@ -1,42 +1,58 @@
 {
   "name": "gav-the-incense-route",
   "version": "1.0.0",
-  "description": "GAV - The Incense Route | Supply Chain + Marketplace + Merchant POS + Barter Infrastructure on Pi Network",
+  "description": "GAV – The Incense Route | Pi Network marketplace on Testnet",
   "main": "api/v1/index.js",
-  "type": "commonjs",
-  "scripts": {
-    "start": "node scripts/dev-server.js",
-    "dev": "nodemon scripts/dev-server.js",
-    "test": "jest --runInBand",
-    "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration",
-    "test:security": "jest tests/security",
-    "test:all": "jest tests/",
-    "migrate": "node scripts/migrate.js",
-    "seed": "node scripts/seed.js",
-    "lint": "echo 'No linter configured yet'"
-  },
+  "private": true,
+  "license": "UNLICENSED",
   "engines": {
-    "node": "24.x"
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "NODE_ENV=development node index.js",
+    "test": "jest",
+    "test:api": "jest tests/api",
+    "test:client": "jest tests/client",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --runInBand --verbose"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.3.0",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
-    "nodemon": "^3.0.0",
-    "supertest": "^6.3.0"
+    "jest-environment-jsdom": "^29.7.0",
+    "supertest": "^6.3.4"
   },
-  "keywords": [
-    "pi-network",
-    "marketplace",
-    "supply-chain",
-    "barter",
-    "pos"
-  ],
-  "author": "Arabian Eagle A.E.C",
-  "license": "MIT"
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/public/"
+    ],
+    "collectCoverageFrom": [
+      "api/**/*.js",
+      "index.js",
+      "!api/_lib/**",
+      "!**/node_modules/**",
+      "!**/tests/**"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov"
+    ],
+    "verbose": true,
+    "clearMocks": true,
+    "resetModules": false,
+    "testTimeout": 15000
+  }
 }
