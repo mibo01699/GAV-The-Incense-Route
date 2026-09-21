@@ -1,816 +1,381 @@
-const express = require('express');
-const cors = require('cors');
+/* ============================================================
+   GAV – The Incense Route
+   File:   index.js (root)
+   Role:   Local development server + Vercel fallback router.
+
+   PURPOSE:
+     - Serve /public as static assets for `npm start`.
+     - Route /api/* to the shared handler in api/v1/index.js.
+     - Provide POST /api/auth/verify as a compatible endpoint
+       for BIGISH-YER integrations (server-side only).
+     - Never expose PI_API_KEY to the client.
+
+   RUNTIME:
+     - Pure Node.js (no Express, no external deps).
+     - CommonJS (works with `"type": "commonjs"` or absent).
+     - Safe on Node >= 18.
+
+   PI COMPLIANCE:
+     - Pi-only. No GCV. No YER. No fiat conversion.
+     - Server-side token verification via Pi API /v2/me.
+     - Client is NEVER trusted for identity or amount.
+   ============================================================ */
+
+'use strict';
+
+const http = require('http');
+const fs   = require('fs');
 const path = require('path');
+const url  = require('url');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const BIGISH_YER_URL = process.env.BIGISH_YER_URL || 'https://bigish-yer.vercel.app';
-const PI_API_KEY = process.env.PI_API_KEY || '';
+/* --------------------------------------------
+   Config
+   -------------------------------------------- */
+const PORT         = parseInt(process.env.PORT, 10) || 3000;
+const NODE_ENV     = process.env.NODE_ENV || 'development';
+const PUBLIC_DIR   = path.join(__dirname, 'public');
+const PI_API_BASE  = 'https://api.minepi.com/v2';
+const PI_API_KEY   = process.env.PI_API_KEY || '';
+const VERIFY_TIMEOUT_MS = 15000;
 
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+/* --------------------------------------------
+   MIME types
+   -------------------------------------------- */
+const MIME = Object.freeze({
+    '.html': 'text/html; charset=utf-8',
+    '.htm':  'text/html; charset=utf-8',
+    '.css':  'text/css; charset=utf-8',
+    '.js':   'application/javascript; charset=utf-8',
+    '.mjs':  'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png':  'image/png',
+    '.jpg':  'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif':  'image/gif',
+    '.svg':  'image/svg+xml',
+    '.webp': 'image/webp',
+    '.ico':  'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2':'font/woff2',
+    '.ttf':  'font/ttf',
+    '.txt':  'text/plain; charset=utf-8',
+    '.map':  'application/json; charset=utf-8'
+});
 
-const RATES = {
-    piAmmUsd: 0.63,
-    yerAmmUsd: 0.01,
-    priceCapPercent: 15
-};
-
-const db = {
-    products: [],
-    orders: [],
-    festivals: [],
-    transactions: [],
-    productMessages: [],
-    festivalMessages: []
-};
-
-const CATEGORIES = [
-    { id: 'incense', name: 'البخور والعطور', icon: '🌿' },
-    { id: 'luban', name: 'البان', icon: '🪔' },
-    { id: 'dates', name: 'التمور', icon: '🌴' },
-    { id: 'textiles', name: 'المنسوجات', icon: '🧵' },
-    { id: 'handicrafts', name: 'الحرف اليدوية', icon: '🏺' },
-    { id: 'food', name: 'المواد الغذائية', icon: '🥫' },
-    { id: 'vegetables', name: 'الخضروات والفواكه', icon: '🥬' },
-    { id: 'meat', name: 'اللحوم', icon: '🥩' },
-    { id: 'fish', name: 'الأسماك', icon: '🐟' },
-    { id: 'beverages', name: 'المشروبات', icon: '🥤' },
-    { id: 'coffee', name: 'البن والقهوة', icon: '☕' },
-    { id: 'honey', name: 'العسل الطبيعي', icon: '🍯' },
-    { id: 'spices', name: 'التوابل', icon: '🌶️' },
-    { id: 'gold', name: 'الذهب والمجوهرات', icon: '💍' },
-    { id: 'silver', name: 'الفضيات', icon: '🥈' },
-    { id: 'clothing', name: 'الملابس', icon: '👕' },
-    { id: 'accessories', name: 'الإكسسوارات', icon: '👜' },
-    { id: 'cosmetics', name: 'أدوات التجميل', icon: '💄' },
-    { id: 'electronics', name: 'الأجهزة الإلكترونية', icon: '📱' },
-    { id: 'smartphones', name: 'الهواتف الذكية', icon: '📲' },
-    { id: 'hardware', name: 'الخردوات والأدوات', icon: '🔧' },
-    { id: 'home', name: 'مستلزمات المنزل', icon: '🏠' },
-    { id: 'agriculture', name: 'المستلزمات الزراعية', icon: '🌾' },
-    { id: 'medicines', name: 'الأدوية', icon: '💊' },
-    { id: 'supplements', name: 'المكملات الغذائية', icon: '🧴' },
-    { id: 'sanitary', name: 'الأدوات الصحية', icon: '🚿' },
-    { id: 'constructionTools', name: 'أدوات البناء', icon: '🔨' },
-    { id: 'constructionMaterials', name: 'مواد البناء', icon: '🧱' },
-    { id: 'electricalTools', name: 'أدوات الكهرباء', icon: '⚡' },
-    { id: 'plumbingTools', name: 'أدوات السباكة', icon: '🔩' },
-    { id: 'tiles', name: 'البلاط', icon: '🟫' },
-    { id: 'ceramics', name: 'السيراميك', icon: '🔲' },
-    { id: 'vehicles', name: 'المركبات', icon: '🚗' },
-    { id: 'others', name: 'أخرى', icon: '📦' }
-];
-
-async function verifyUser(accessToken) {
-    try {
-        const res = await fetch(BIGISH_YER_URL + '/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: accessToken })
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.success ? data.user : null;
-    } catch (e) {
-        return null;
-    }
+/* --------------------------------------------
+   Small helpers
+   -------------------------------------------- */
+function log(level, msg, data) {
+    const tag = '[GAV/server]';
+    if (data !== undefined) console[level](tag, msg, data);
+    else                    console[level](tag, msg);
 }
 
-// ============================================
-// Health & Rates & Categories
-// ============================================
-app.get('/api/health', function(req, res) {
-    res.json({
-        service: 'gav-the-incense-route',
-        status: 'ONLINE',
-        pi: { apiKeyConfigured: PI_API_KEY !== '' },
-        timestamp: new Date().toISOString(),
-        stats: {
-            products: db.products.length,
-            orders: db.orders.length,
-            festivals: db.festivals.length,
-            transactions: db.transactions.length,
-            categories: CATEGORIES.length
-        }
+function sendJson(res, status, payload) {
+    const body = JSON.stringify(payload);
+    res.writeHead(status, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Length': Buffer.byteLength(body),
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
     });
-});
+    res.end(body);
+}
 
-app.get('/api/rates', function(req, res) {
-    res.json({ success: true, rates: RATES });
-});
+function sendText(res, status, text) {
+    const body = String(text || '');
+    res.writeHead(status, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Length': Buffer.byteLength(body),
+        'Cache-Control': 'no-store'
+    });
+    res.end(body);
+}
 
-app.get('/api/categories', function(req, res) {
-    res.json({ success: true, categories: CATEGORIES, count: CATEGORIES.length });
-});
+function readBody(req, maxBytes) {
+    maxBytes = maxBytes || 256 * 1024; // 256 KB default
+    return new Promise(function (resolve, reject) {
+        let size = 0;
+        const chunks = [];
+        req.on('data', function (chunk) {
+            size += chunk.length;
+            if (size > maxBytes) {
+                reject(new Error('BODY_TOO_LARGE'));
+                try { req.destroy(); } catch (_) {}
+                return;
+            }
+            chunks.push(chunk);
+        });
+        req.on('end', function () {
+            try {
+                const raw = Buffer.concat(chunks).toString('utf8');
+                if (!raw) return resolve(null);
+                resolve(JSON.parse(raw));
+            } catch (e) {
+                reject(new Error('INVALID_JSON'));
+            }
+        });
+        req.on('error', reject);
+    });
+}
 
-// ============================================
-// API: Auth Verify (التحقق من توكن Pi)
-// ============================================
-app.post('/api/auth/verify', async function(req, res) {
-    const accessToken = req.body.accessToken;
+function safePathFromUrl(urlPath) {
+    // Prevent path traversal
+    const decoded = decodeURIComponent(urlPath.split('?')[0]);
+    const normalized = path.normalize(decoded).replace(/^(\.\.[\/\\])+/, '');
+    const full = path.join(PUBLIC_DIR, normalized);
+    if (!full.startsWith(PUBLIC_DIR)) return null;
+    return full;
+}
 
-    if (!accessToken) {
-        return res.status(400).json({ error: 'accessToken مطلوب' });
+/* --------------------------------------------
+   /api/auth/verify — server-side Pi identity verification
+   -------------------------------------------- */
+async function handleAuthVerify(req, res) {
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', 'POST');
+        return sendJson(res, 405, { ok: false, message: 'Method Not Allowed' });
     }
 
     if (!PI_API_KEY) {
-        return res.status(500).json({ error: 'PI_API_KEY غير مُهيأ' });
+        log('error', 'PI_API_KEY is not configured on the server.');
+        return sendJson(res, 500, {
+            ok: false,
+            message: 'خادم GAV غير مهيأ للتحقق من Pi.'
+        });
     }
 
+    let body;
     try {
-        const response = await fetch('https://api.minepi.com/v2/me', {
+        body = await readBody(req, 8 * 1024);
+    } catch (e) {
+        const code = (e && e.message) || '';
+        if (code === 'BODY_TOO_LARGE') {
+            return sendJson(res, 413, { ok: false, message: 'الطلب كبير جداً.' });
+        }
+        return sendJson(res, 400, { ok: false, message: 'طلب غير صالح.' });
+    }
+
+    const accessToken = body && body.accessToken ? String(body.accessToken) : '';
+    if (!accessToken) {
+        return sendJson(res, 400, { ok: false, message: 'accessToken مطلوب.' });
+    }
+
+    // Call Pi API /v2/me
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, VERIFY_TIMEOUT_MS);
+
+    let piRes;
+    try {
+        piRes = await fetch(PI_API_BASE + '/me', {
             method: 'GET',
             headers: {
                 'Authorization': 'Bearer ' + accessToken,
                 'Accept': 'application/json'
-            }
+            },
+            signal: controller.signal
         });
-
-        if (!response.ok) {
-            return res.status(response.status).json({
-                error: 'توكن غير صالح أو منتهي الصلاحية'
-            });
+    } catch (err) {
+        clearTimeout(timer);
+        if (err && err.name === 'AbortError') {
+            return sendJson(res, 504, { ok: false, message: 'انتهت مهلة Pi API.' });
         }
-
-        const userData = await response.json();
-
-        res.json({
-            success: true,
-            user: {
-                uid: userData.uid,
-                username: userData.username
-            }
-        });
-
-    } catch (error) {
-        console.error('Auth verify error:', error);
-        res.status(500).json({ error: 'خطأ في الخادم أثناء التحقق' });
+        log('error', 'Pi /v2/me request failed:', err);
+        return sendJson(res, 502, { ok: false, message: 'تعذّر الاتصال بـ Pi API.' });
     }
-});
+    clearTimeout(timer);
 
-// ============================================
-// API: Incomplete Payments
-// ============================================
-app.post('/api/payments/incomplete', function(req, res) {
-    const payment = req.body.payment;
-    console.log('Incomplete payment received:', payment);
-    res.json({ success: true });
-});
+    let piData = null;
+    try { piData = await piRes.json(); } catch (_) { /* noop */ }
 
-// ============================================
-// Pi Payments (GAV's own)
-// ============================================
-app.post('/api/payments/approve', async function(req, res) {
-    const paymentId = req.body.paymentId;
-    if (!paymentId) return res.status(400).json({ error: 'paymentId required' });
-    if (!PI_API_KEY) return res.status(500).json({ error: 'PI_API_KEY not configured' });
-
-    try {
-        const response = await fetch(
-            'https://api.minepi.com/v2/payments/' + paymentId + '/approve',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Key ' + PI_API_KEY,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        if (!response.ok) {
-            const err = await response.text();
-            return res.status(response.status).json({ error: err });
-        }
-        res.json({ success: true, paymentId: paymentId });
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
+    if (piRes.status === 401) {
+        return sendJson(res, 401, { ok: false, message: 'رمز Pi غير صالح أو منتهي.' });
     }
-});
-
-app.post('/api/payments/complete', async function(req, res) {
-    const paymentId = req.body.paymentId;
-    const txid = req.body.txid;
-    if (!paymentId || !txid) return res.status(400).json({ error: 'paymentId and txid required' });
-    if (!PI_API_KEY) return res.status(500).json({ error: 'PI_API_KEY not configured' });
-
-    try {
-        const response = await fetch(
-            'https://api.minepi.com/v2/payments/' + paymentId + '/complete',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Key ' + PI_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ txid: txid })
-            }
-        );
-        if (!response.ok) {
-            const err = await response.text();
-            if (err.indexOf('already_completed') !== -1) {
-                return res.json({ success: true, alreadyCompleted: true });
-            }
-            return res.status(response.status).json({ error: err });
-        }
-        res.json({ success: true, paymentId: paymentId, txid: txid });
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// ============================================
-// Products
-// ============================================
-app.get('/api/products', function(req, res) {
-    let filtered = db.products.slice();
-    if (req.query.category) {
-        filtered = filtered.filter(function(p) { return p.category === req.query.category; });
-    }
-    if (req.query.merchantId) {
-        filtered = filtered.filter(function(p) { return p.merchantId === req.query.merchantId; });
-    }
-    res.json({ success: true, products: filtered, count: filtered.length });
-});
-
-app.get('/api/products/:id', function(req, res) {
-    const product = db.products.find(function(p) { return p.id === req.params.id; });
-    if (!product) return res.status(404).json({ error: 'Product not found' });
-    res.json({ success: true, product: product });
-});
-
-// ============================================
-// رسائل المنتجات
-// ============================================
-app.get('/api/products/:id/messages', function(req, res) {
-    const messages = db.productMessages.filter(function(m) { return m.productId === req.params.id; });
-    messages.sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
-    res.json({ success: true, messages: messages });
-});
-
-app.post('/api/products/:id/messages', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const text = req.body.text;
-    if (!accessToken || !text) return res.status(400).json({ error: 'accessToken and text required' });
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const product = db.products.find(function(p) { return p.id === req.params.id; });
-    if (!product) return res.status(404).json({ error: 'Product not found' });
-
-    const msg = {
-        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        productId: req.params.id,
-        userId: user.uid,
-        username: user.username,
-        text: text,
-        timestamp: new Date().toISOString()
-    };
-    db.productMessages.push(msg);
-    res.json({ success: true, message: msg });
-});
-app.post('/api/products', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const product = req.body.product;
-    if (!accessToken || !product) {
-        return res.status(400).json({ error: 'accessToken and product required' });
+    if (!piRes.ok) {
+        log('warn', 'Pi /v2/me returned ' + piRes.status, piData);
+        return sendJson(res, 502, { ok: false, message: 'فشل التحقق من Pi.' });
     }
 
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
+    const uid = piData && piData.uid ? String(piData.uid) : '';
+    const username = piData && piData.username ? String(piData.username) : '';
 
-    const newProduct = {
-        id: 'prod_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        merchantId: user.uid,
-        merchantName: user.username,
-        name: product.name,
-        type: product.type || '',
-        quantity: parseInt(product.quantity) || 1,
-        stock: parseInt(product.stock) || 1,
-        directSaleAddress: product.directSaleAddress || '',
-        description: product.description || '',
-        category: product.category || 'incense',
-        priceUSD: parseFloat(product.priceUSD) || 0,
-        pricePi: parseFloat(product.pricePi) || 0,
-        priceYER: parseFloat(product.priceYER) || 0,
-        referenceValue: {
-            source: 'dex',
-            piRatio: 50,
-            piAmmUsd: RATES.piAmmUsd,
-            yerAmmUsd: RATES.yerAmmUsd,
-            updatedAt: new Date().toISOString()
-        },
-        createdAt: new Date().toISOString(),
-        status: 'ACTIVE'
-    };
-
-    db.products.push(newProduct);
-    res.json({ success: true, product: newProduct });
-});
-
-app.delete('/api/products/:id', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const index = db.products.findIndex(function(p) { return p.id === req.params.id; });
-    if (index === -1) return res.status(404).json({ error: 'Product not found' });
-    if (db.products[index].merchantId !== user.uid) {
-        return res.status(403).json({ error: 'Not authorized' });
+    if (!uid) {
+        return sendJson(res, 502, { ok: false, message: 'استجابة Pi غير مكتملة.' });
     }
 
-    db.products.splice(index, 1);
-    res.json({ success: true });
-});
-
-app.post('/api/checkout', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const productId = req.body.productId;
-    const walletType = req.body.walletType || 'bigish-yer';
-    if (!accessToken || !productId) {
-        return res.status(400).json({ error: 'accessToken and productId required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const product = db.products.find(function(p) { return p.id === productId; });
-    if (!product) return res.status(404).json({ error: 'Product not found' });
-
-    const qty = parseInt(req.body.quantity) || 1;
-    const pi = parseFloat(req.body.piAmount) || (product.pricePi * qty);
-    const yer = parseFloat(req.body.yerAmount) || (product.priceYER * qty);
-
-    const orderId = 'ord_' + Date.now();
-    let status = 'PENDING';
-    let transactionId = 'TEST-' + Date.now();
-
-    if (walletType === 'pi-browser') {
-        transactionId = req.body.txid || transactionId;
-        status = 'PAID';
-    } else {
-        try {
-            const hybRes = await fetch(BIGISH_YER_URL + '/api/payments/internal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    accessToken: accessToken,
-                    piAmount: pi,
-                    yerAmount: yer,
-                    recipientId: product.merchantId,
-                    orderId: orderId,
-                    memo: 'GAV: ' + product.name + ' x' + qty
-                })
-            });
-            const hybData = await hybRes.json();
-            if (hybData.success) {
-                status = 'PAID';
-                transactionId = hybData.transactionId || transactionId;
-            }
-        } catch (e) {
-            status = 'PENDING';
-        }
-    }
-
-    const order = {
-        id: orderId,
-        userId: user.uid,
-        username: user.username,
-        productId: productId,
-        productName: product.name,
-        merchantId: product.merchantId,
-        merchantName: product.merchantName,
-        quantity: qty,
-        piAmount: pi,
-        yerAmount: yer,
-        usdValue: parseFloat((pi * RATES.piAmmUsd + yer * RATES.yerAmmUsd).toFixed(2)),
-        walletType: walletType,
-        transactionId: transactionId,
-        status: status,
-        createdAt: new Date().toISOString()
-    };
-    db.orders.push(order);
-
-    db.transactions.push({
-        id: 'tx_' + Date.now(),
-        type: 'PRODUCT_SALE',
-        orderId: orderId,
-        userId: user.uid,
-        username: user.username,
-        productName: product.name,
-        merchantId: product.merchantId,
-        merchantName: product.merchantName,
-        piAmount: pi,
-        yerAmount: yer,
-        usdValue: order.usdValue,
-        referenceSource: 'Pi DEX AMM',
-        walletType: walletType,
-        transactionId: transactionId,
-        status: status,
-        timestamp: order.createdAt
-    });
-
-    res.json({
-        success: true,
-        order: order,
-        payment: {
-            transactionId: transactionId,
-            status: status,
-            walletType: walletType
-        }
-    });
-});
-
-app.get('/api/orders/user/:uid', function(req, res) {
-    const uid = req.params.uid;
-    const orders = db.orders.filter(function(o) {
-        return o.userId === uid || o.merchantId === uid;
-    });
-    orders.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-    res.json({ success: true, orders: orders });
-});
-
-app.get('/api/transactions/all/:uid', function(req, res) {
-    const uid = req.params.uid;
-    const filterType = req.query.type;
-
-    let txs = db.transactions.filter(function(t) {
-        return t.userId === uid || t.merchantId === uid || t.buyerId === uid || t.sellerId === uid;
-    });
-
-    if (filterType && filterType !== 'all') {
-        txs = txs.filter(function(t) { return t.type === filterType; });
-    }
-
-    txs.sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
-
-    const totalPi = txs.reduce(function(s, t) { return s + (t.piAmount || 0); }, 0);
-    const totalYer = txs.reduce(function(s, t) { return s + (t.yerAmount || 0); }, 0);
-    const totalUsd = txs.reduce(function(s, t) { return s + (t.usdValue || 0); }, 0);
-
-    res.json({
-        success: true,
-        transactions: txs,
-        summary: {
-            count: txs.length,
-            totalPi: parseFloat(totalPi.toFixed(10)),
-            totalYer: parseFloat(totalYer.toFixed(4)),
-            totalUsd: parseFloat(totalUsd.toFixed(2))
-        }
-    });
-});
-
-app.post('/api/converter', function(req, res) {
-    const productUSD = parseFloat(req.body.productUSD);
-
-    if (req.body.referenceSource === 'gcvalue') {
-        return res.status(400).json({ error: 'GCV is not supported. Use Pi DEX AMM only.' });
-    }
-
-    if (!productUSD || productUSD <= 0) {
-        return res.status(400).json({ error: 'productUSD required' });
-    }
-
-    const piAmount = (productUSD * 0.50) / RATES.piAmmUsd;
-    const yerAmount = (productUSD * 0.50) / RATES.yerAmmUsd;
-
-    res.json({
-        success: true,
-        mode: 'AMM/DEX',
-        original: { productUSD: productUSD },
-        split: {
-            piAmount: parseFloat(piAmount.toFixed(10)),
-            yerAmount: parseFloat(yerAmount.toFixed(4)),
-            piPercentage: 50,
-            yerPercentage: 50
-        },
-        rates: RATES
-    });
-});
-
-app.get('/api/merchant/stats/:uid', function(req, res) {
-    const uid = req.params.uid;
-    const myProducts = db.products.filter(function(p) { return p.merchantId === uid; });
-    const myOrders = db.orders.filter(function(o) { return o.merchantId === uid; });
-    const totalPi = myOrders.reduce(function(sum, o) { return sum + o.piAmount; }, 0);
-    const totalYER = myOrders.reduce(function(sum, o) { return sum + o.yerAmount; }, 0);
-
-    res.json({
-        success: true,
-        stats: {
-            totalProducts: myProducts.length,
-            totalOrders: myOrders.length,
-            totalPiEarned: parseFloat(totalPi.toFixed(4)),
-            totalYerEarned: parseFloat(totalYER.toFixed(4))
-        }
-    });
-});
-// ============================================
-// FESTIVALS
-// ============================================
-app.post('/api/festivals', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const festival = req.body.festival;
-    if (!accessToken || !festival) {
-        return res.status(400).json({ error: 'accessToken and festival required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const newFestival = {
-        id: 'fest_' + Date.now(),
-        creatorId: user.uid,
-        creatorName: user.username,
-        title: festival.title || 'مهرجان مقايضة',
-        description: festival.description || '',
-        location: festival.location || '',
-        directSaleAddress: festival.directSaleAddress || '',
-        country: festival.country || '',
-        region: festival.region || '',
-        startDate: festival.startDate || new Date().toISOString(),
-        endDate: festival.endDate || new Date(Date.now() + 7 * 86400000).toISOString(),
-        editors: [user.uid],
-        editorNames: [user.username],
-        products: [],
-        exchanges: [],
-        votes: [],
-        status: 'PENDING',
-        createdAt: new Date().toISOString()
-    };
-
-    db.festivals.push(newFestival);
-    res.json({ success: true, festival: newFestival });
-});
-
-app.get('/api/festivals', function(req, res) {
-    let filtered = db.festivals.filter(function(f) { return f.status === 'APPROVED' || f.status === 'ACTIVE'; });
-    filtered.sort(function(a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-    res.json({ success: true, festivals: filtered, count: filtered.length });
-});
-
-app.get('/api/festivals/log/all', function(req, res) {
-    const log = db.festivals
-        .filter(function(f) { return f.status === 'APPROVED' || f.status === 'ACTIVE' || f.status === 'ENDED'; })
-        .map(function(f) {
-            const exchanges = f.exchanges || [];
-            const totalPiValue = exchanges.reduce(function(sum, e) { return sum + (e.piAmount || 0); }, 0);
-            const totalUSDValue = exchanges.reduce(function(sum, e) { return sum + (e.usdValue || 0); }, 0);
-            const categoriesSold = {};
-            exchanges.forEach(function(e) {
-                const cat = e.category || 'others';
-                categoriesSold[cat] = (categoriesSold[cat] || 0) + 1;
-            });
-            return {
-                id: f.id,
-                title: f.title,
-                location: f.location,
-                country: f.country,
-                region: f.region,
-                status: f.status,
-                creatorName: f.creatorName,
-                productsOffered: f.products ? f.products.length : 0,
-                summary: {
-                    totalTransactions: exchanges.length,
-                    totalPiValue: parseFloat(totalPiValue.toFixed(10)),
-                    totalUSDValue: parseFloat(totalUSDValue.toFixed(2)),
-                    categoriesSold: categoriesSold
-                },
-                startDate: f.startDate,
-                endDate: f.endDate,
-                createdAt: f.createdAt
-            };
-        });
-
-    res.json({
-        success: true,
-        totalFestivals: log.length,
-        grandTotalTransactions: log.reduce(function(sum, f) { return sum + f.summary.totalTransactions; }, 0),
-        grandTotalPiValue: parseFloat(log.reduce(function(sum, f) { return sum + f.summary.totalPiValue; }, 0).toFixed(10)),
-        grandTotalUSDValue: parseFloat(log.reduce(function(sum, f) { return sum + f.summary.totalUSDValue; }, 0).toFixed(2)),
-        festivals: log
-    });
-});
-
-app.get('/api/festivals/my/:uid', function(req, res) {
-    const uid = req.params.uid;
-    const myFestivals = db.festivals.filter(function(f) {
-        return f.creatorId === uid || (f.editors && f.editors.indexOf(uid) !== -1);
-    });
-    res.json({ success: true, festivals: myFestivals });
-});
-
-// ============================================
-// رسائل المهرجانات
-// ============================================
-app.get('/api/festivals/:id/messages', function(req, res) {
-    const messages = db.festivalMessages.filter(function(m) { return m.festivalId === req.params.id; });
-    messages.sort(function(a, b) { return new Date(a.timestamp) - new Date(b.timestamp); });
-    res.json({ success: true, messages: messages });
-});
-
-app.post('/api/festivals/:id/messages', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const text = req.body.text;
-    if (!accessToken || !text) return res.status(400).json({ error: 'accessToken and text required' });
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    const msg = {
-        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        festivalId: req.params.id,
-        userId: user.uid,
-        username: user.username,
-        text: text,
-        timestamp: new Date().toISOString()
-    };
-    db.festivalMessages.push(msg);
-    res.json({ success: true, message: msg });
-});
-
-app.get('/api/festivals/:id', function(req, res) {
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    const exchanges = festival.exchanges || [];
-    const summary = {
-        totalTransactions: exchanges.length,
-        totalPiValue: parseFloat(exchanges.reduce(function(sum, e) { return sum + (e.piAmount || 0); }, 0).toFixed(10)),
-        totalUSDValue: parseFloat(exchanges.reduce(function(sum, e) { return sum + (e.usdValue || 0); }, 0).toFixed(2))
-    };
-
-    res.json({ success: true, festival: festival, summary: summary });
-});
-
-app.post('/api/festivals/:id/products', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const product = req.body.product;
-    if (!accessToken || !product) {
-        return res.status(400).json({ error: 'accessToken and product required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    let autoApproved = false;
-    if (festival.status === 'PENDING') {
-        festival.status = 'APPROVED';
-        festival.approvedAt = new Date().toISOString();
-        festival.approvedBy = 'auto-first-offer';
-        autoApproved = true;
-    }
-
-    const newOffer = {
-        id: 'offer_' + Date.now(),
-        sellerId: user.uid,
-        sellerName: user.username,
-        name: product.name,
-        type: product.type || '',
-        description: product.description || '',
-        category: product.category || 'others',
-        pricePi: parseFloat(product.pricePi) || 0,
-        quantity: parseInt(product.quantity) || 1,
-        directSaleAddress: product.directSaleAddress || '',
-        status: 'AVAILABLE',
-        createdAt: new Date().toISOString()
-    };
-
-    festival.products.push(newOffer);
-    res.json({ success: true, offer: newOffer, autoApproved: autoApproved });
-});
-
-app.post('/api/festivals/:id/exchange', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    const offerId = req.body.offerId;
-    const piAmount = parseFloat(req.body.piAmount);
-    const txid = req.body.txid;
-    if (!accessToken || !offerId || !piAmount) {
-        return res.status(400).json({ error: 'accessToken, offerId, piAmount required' });
-    }
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    const offer = festival.products.find(function(p) { return p.id === offerId; });
-    if (!offer) return res.status(404).json({ error: 'Offer not found' });
-    if (offer.status !== 'AVAILABLE') {
-        return res.status(400).json({ error: 'العرض غير متاح' });
-    }
-
-    const exchange = {
-        id: 'exc_' + Date.now(),
-        buyerId: user.uid,
-        buyerName: user.username,
-        sellerId: offer.sellerId,
-        sellerName: offer.sellerName,
-        productName: offer.name,
-        category: offer.category,
-        piAmount: piAmount,
-        usdValue: parseFloat((piAmount * RATES.piAmmUsd).toFixed(2)),
-        walletType: 'pi-browser',
-        transactionId: txid || ('EXC-' + Date.now()),
-        status: 'COMPLETED',
-        timestamp: new Date().toISOString()
-    };
-
-    if (!festival.exchanges) festival.exchanges = [];
-    festival.exchanges.push(exchange);
-
-    offer.status = 'SOLD';
-    offer.soldAt = new Date().toISOString();
-
-    db.transactions.push({
-        id: 'tx_' + Date.now(),
-        type: 'FESTIVAL_EXCHANGE',
-        festivalId: festival.id,
-        festivalTitle: festival.title,
-        buyerId: user.uid,
-        buyerName: user.username,
-        sellerId: offer.sellerId,
-        sellerName: offer.sellerName,
-        productName: offer.name,
-        category: offer.category,
-        piAmount: piAmount,
-        usdValue: exchange.usdValue,
-        referenceSource: 'Pi DEX AMM',
-        walletType: 'pi-browser',
-        transactionId: exchange.transactionId,
-        status: 'COMPLETED',
-        timestamp: exchange.timestamp
-    });
-
-    res.json({ success: true, exchange: exchange });
-});
-
-app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
-    const accessToken = req.body.accessToken;
-    if (!accessToken) return res.status(400).json({ error: 'accessToken required' });
-
-    const user = await verifyUser(accessToken);
-    if (!user) return res.status(401).json({ error: 'Invalid token' });
-
-    const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
-    if (!festival) return res.status(404).json({ error: 'Festival not found' });
-
-    const index = festival.products.findIndex(function(p) { return p.id === req.params.offerId; });
-    if (index === -1) return res.status(404).json({ error: 'Offer not found' });
-
-    const offer = festival.products[index];
-    if (offer.sellerId !== user.uid && festival.editors.indexOf(user.uid) === -1) {
-        return res.status(403).json({ error: 'Not authorized' });
-    }
-
-    festival.products.splice(index, 1);
-    res.json({ success: true });
-});
-
-// ============================================
-// Root
-// ============================================
-app.get('/api', function(req, res) {
-    res.json({
-        message: 'GAV API',
-        version: '6.0.0',
-        features: {
-            priceCap: '15%',
-            barterFestivals: 'enabled',
-            transactionsLog: 'enabled',
-            piBrowserPayments: PI_API_KEY !== '',
-            messages: 'enabled',
-            autoApproval: 'enabled',
-            serverSideAuth: 'enabled'
-        },
-        categories: CATEGORIES.length,
-        products: db.products.length,
-        festivals: db.festivals.length
-    });
-});
-
-app.get('/', function(req, res) {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.use(function(req, res) {
-    res.status(404).json({ error: 'Not Found' });
-});
-
-if (require.main === module) {
-    app.listen(PORT, function() {
-        console.log('GAV v6.0.0 running on port ' + PORT);
+    // Return only the trusted identity fields
+    return sendJson(res, 200, {
+        ok: true,
+        uid: uid,
+        username: username,
+        sandbox: true
     });
 }
 
-module.exports = app;
+/* --------------------------------------------
+   /api/* → delegate to api/v1/index.js
+   -------------------------------------------- */
+async function delegateToApiV1(req, res, parsedUrl) {
+    const handlerPath = path.join(__dirname, 'api', 'v1', 'index.js');
+
+    if (!fs.existsSync(handlerPath)) {
+        log('warn', 'api/v1/index.js not found; returning 503 for ' + parsedUrl.pathname);
+        return sendJson(res, 503, { ok: false, message: 'واجهة API غير جاهزة.' });
+    }
+
+    let handler;
+    try {
+        const mod = require(handlerPath);
+        handler = (typeof mod === 'function')
+            ? mod
+            : (mod && typeof mod.default === 'function' ? mod.default : null);
+    } catch (err) {
+        log('error', 'Failed to load api/v1/index.js:', err);
+        return sendJson(res, 500, { ok: false, message: 'خطأ داخلي في الخادم.' });
+    }
+
+    if (!handler) {
+        log('error', 'api/v1/index.js does not export a default function.');
+        return sendJson(res, 500, { ok: false, message: 'معالج API غير صالح.' });
+    }
+
+    // Vercel-style handler signature: (req, res)
+    // Provide a minimal `req.query` for compatibility.
+    req.query = Object.fromEntries(parsedUrl.searchParams.entries());
+
+    try {
+        await handler(req, res);
+    } catch (err) {
+        log('error', 'Handler threw:', err);
+        if (!res.headersSent) {
+            sendJson(res, 500, { ok: false, message: 'خطأ داخلي في المعالج.' });
+        }
+    }
+}
+
+/* --------------------------------------------
+   Static file serving
+   -------------------------------------------- */
+function serveStatic(req, res, parsedUrl) {
+    let pathname = decodeURIComponent(parsedUrl.pathname);
+
+    if (pathname === '/' || pathname === '') pathname = '/index.html';
+
+    const filePath = safePathFromUrl(pathname);
+    if (!filePath) {
+        return sendText(res, 400, 'Bad Request');
+    }
+
+    fs.stat(filePath, function (err, stat) {
+        if (err || !stat.isFile()) {
+            // SPA fallback → index.html for non-API routes
+            const fallback = path.join(PUBLIC_DIR, 'index.html');
+            fs.readFile(fallback, function (e2, data) {
+                if (e2) return sendText(res, 404, 'Not Found');
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Content-Length': data.length,
+                    'Cache-Control': 'no-cache'
+                });
+                res.end(data);
+            });
+            return;
+        }
+
+        const ext = path.extname(filePath).toLowerCase();
+        const type = MIME[ext] || 'application/octet-stream';
+
+        const isHtml = (ext === '.html' || ext === '.htm');
+        const isAsset = !isHtml;
+
+        res.writeHead(200, {
+            'Content-Type': type,
+            'Content-Length': stat.size,
+            'Cache-Control': isAsset ? 'public, max-age=3600' : 'no-cache',
+            'X-Content-Type-Options': 'nosniff'
+        });
+
+        const stream = fs.createReadStream(filePath);
+        stream.on('error', function (streamErr) {
+            log('error', 'Static stream error:', streamErr);
+            if (!res.headersSent) sendText(res, 500, 'Internal Error');
+            else try { res.end(); } catch (_) {}
+        });
+        stream.pipe(res);
+    });
+}
+
+/* --------------------------------------------
+   Main request router
+   -------------------------------------------- */
+function onRequest(req, res) {
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname || '/';
+
+    // Security headers (baseline)
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Auth verify — dedicated route
+    if (pathname === '/api/auth/verify') {
+        return handleAuthVerify(req, res);
+    }
+
+    // All other /api/* → delegate
+    if (pathname.indexOf('/api/') === 0) {
+        return delegateToApiV1(req, res, parsedUrl);
+    }
+
+    // Static
+    return serveStatic(req, res, parsedUrl);
+}
+
+/* --------------------------------------------
+   Server lifecycle
+   -------------------------------------------- */
+function createServer() {
+    const server = http.createServer(onRequest);
+
+    server.on('clientError', function (err, socket) {
+        log('warn', 'clientError:', err && err.message);
+        try { socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); } catch (_) {}
+    });
+
+    return server;
+}
+
+function start() {
+    const server = createServer();
+
+    server.listen(PORT, function () {
+        log('info', 'GAV dev server running on http://localhost:' + PORT);
+        log('info', 'Environment: ' + NODE_ENV);
+        log('info', 'Static dir: ' + PUBLIC_DIR);
+        log('info', 'PI_API_KEY configured: ' + (PI_API_KEY ? 'yes' : 'NO (verify will 500)'));
+        log('info', 'Pi testnet only — sandbox mode is enforced client-side.');
+    });
+
+    const shutdown = function (signal) {
+        log('info', 'Received ' + signal + '. Shutting down...');
+        server.close(function () {
+            log('info', 'Server closed.');
+            process.exit(0);
+        });
+        setTimeout(function () { process.exit(1); }, 5000).unref();
+    };
+
+    process.on('SIGINT',  function () { shutdown('SIGINT'); });
+    process.on('SIGTERM', function () { shutdown('SIGTERM'); });
+
+    return server;
+}
+
+/* --------------------------------------------
+   Export for tests + auto-start when run directly
+   -------------------------------------------- */
+module.exports = { createServer, start, handleAuthVerify };
+
+if (require.main === module) {
+    start();
+}
