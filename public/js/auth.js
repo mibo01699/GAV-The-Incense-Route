@@ -1,14 +1,63 @@
 // ============================================
-// GAV | Authentication Module (Pi SDK)
+// GAV | Authentication + Navigation
 // ============================================
 
 let currentUser = null;
 const BIGISH_YER_URL = 'https://bigish-yer.vercel.app';
 
 // ============================================
-// دالة تسجيل الدخول عبر Pi
+// دالة التنقل بين الصفحات (مفقودة سابقاً!)
+// ============================================
+function showPage(pageName) {
+    console.log('📄 showPage:', pageName);
+    try {
+        document.querySelectorAll('.page').forEach(function(page) {
+            page.classList.remove('active');
+        });
+
+        const targetPage = document.getElementById('page-' + pageName);
+        if (targetPage) {
+            targetPage.classList.add('active');
+        } else {
+            console.error('❌ page not found:', 'page-' + pageName);
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(function(btn) {
+            btn.classList.remove('active');
+            if (btn.dataset.page === pageName) {
+                btn.classList.add('active');
+            }
+        });
+
+        // تحميل بيانات كل صفحة
+        if (pageName === 'home') {
+            if (typeof loadBalanceFromBIGISHYER === 'function') loadBalanceFromBIGISHYER();
+            if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
+        }
+        if (pageName === 'products' && typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
+        if (pageName === 'cart' && typeof renderCart === 'function') renderCart();
+        if (pageName === 'orders' && typeof refreshOrders === 'function') refreshOrders();
+        if (pageName === 'merchant') {
+            if (typeof loadMerchantStats === 'function') loadMerchantStats();
+            if (typeof loadMyProducts === 'function') loadMyProducts();
+        }
+        if (pageName === 'festivals') {
+            if (typeof loadFestivals === 'function') loadFestivals();
+            if (typeof loadMyFestivals === 'function') loadMyFestivals();
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+        console.error('❌ showPage error:', err);
+    }
+}
+
+// ============================================
+// تسجيل الدخول عبر Pi
 // ============================================
 function loginWithPi() {
+    console.log('🔐 loginWithPi called');
+
     const btn = document.getElementById('login-btn');
     if (btn && btn.disabled) return;
 
@@ -30,7 +79,6 @@ function loginWithPi() {
         if (!auth || !auth.accessToken) {
             throw new Error('لم يتم استلام accessToken من Pi');
         }
-
         return fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -59,7 +107,7 @@ function loginWithPi() {
         onLoginSuccess(currentUser);
     })
     .catch(function(err) {
-        console.error('Login error:', err);
+        console.error('❌ Login error:', err);
         showLoginError(err.message || 'فشل تسجيل الدخول');
     })
     .finally(function() {
@@ -74,6 +122,8 @@ function loginWithPi() {
 // معالجة نجاح تسجيل الدخول
 // ============================================
 function onLoginSuccess(user) {
+    console.log('✅ Login success:', user.username);
+
     const usernameEl = document.getElementById('username');
     if (usernameEl) usernameEl.textContent = user.username;
 
@@ -87,22 +137,21 @@ function onLoginSuccess(user) {
     if (userIdEl) userIdEl.textContent = user.uid;
 
     const loginPage = document.getElementById('page-login');
-    if (loginPage) {
-        loginPage.classList.remove('active');
-        loginPage.style.display = 'none';
-    }
+    if (loginPage) loginPage.classList.remove('active');
 
     const bottomNav = document.getElementById('bottom-nav');
     if (bottomNav) bottomNav.style.display = 'flex';
 
-    if (typeof showPage === 'function') showPage('home');
-    if (typeof loadBalanceFromBIGISHYER === 'function') loadBalanceFromBIGISHYER();
-    if (typeof loadCategories === 'function') loadCategories();
-    if (typeof loadFeaturedProducts === 'function') loadFeaturedProducts();
-
+    // إظهار الأزرار العائمة
     if (typeof showCalculatorFAB === 'function') showCalculatorFAB();
     const txFab = document.getElementById('transactions-fab');
     if (txFab) txFab.style.display = 'flex';
+
+    // ✅ عرض الصفحة الرئيسية (الآن الدالة موجودة!)
+    showPage('home');
+
+    // تحميل الأقسام
+    if (typeof loadCategories === 'function') loadCategories();
 }
 
 // ============================================
@@ -123,7 +172,6 @@ function showLoginError(message) {
 // ============================================
 function onIncompletePaymentFound(payment) {
     console.log('⚠️ Incomplete payment found:', payment);
-
     fetch('/api/payments/incomplete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +193,7 @@ function logout() {
 }
 
 // ============================================
-// استعادة الجلسة عند إعادة تحميل الصفحة
+// التهيئة عند تحميل الصفحة
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof hideCalculatorFAB === 'function') hideCalculatorFAB();
