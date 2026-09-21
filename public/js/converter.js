@@ -1,14 +1,17 @@
 // ============================================
-// GAV | Smart Calculator v4 (AMM Only)
+// GAV | Smart Calculator v5
 // ============================================
 
 let lastCalculation = null;
 
 function openCalculator() {
+    console.log('🧮 openCalculator called');
     const modal = document.getElementById('calculator-modal');
     if (modal) {
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+    } else {
+        console.error('❌ calculator-modal not found');
     }
 }
 
@@ -20,24 +23,30 @@ function closeCalculator() {
     }
 }
 
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('calculator-modal');
-    if (e.target === modal) closeCalculator();
-
-    const walletModal = document.getElementById('wallet-modal');
-    if (e.target === walletModal) closeWalletModal();
-});
-
+// ✅ الدالة الرئيسية للحساب
 async function calculateConversion() {
-    const usdInput = document.getElementById('calc-usd');
-    const usd = parseFloat(usdInput ? usdInput.value : 0);
+    console.log('⚡ calculateConversion called');
 
+    const usdInput = document.getElementById('calc-usd');
+    if (!usdInput) {
+        alert('❌ خطأ: حقل الإدخال غير موجود');
+        return;
+    }
+
+    const usd = parseFloat(usdInput.value);
     if (!usd || usd <= 0) {
         alert('⚠️ أدخل قيمة المنتج بالدولار أولاً');
         return;
     }
 
+    const btn = event ? event.target : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الحساب...';
+    }
+
     try {
+        console.log('📡 Sending request to /api/converter');
         const res = await fetch('/api/converter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -47,21 +56,34 @@ async function calculateConversion() {
             })
         });
 
+        console.log('📥 Response status:', res.status);
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'فشل الحساب');
+        console.log('📥 Response data:', data);
+
+        if (!data.success) {
+            throw new Error(data.error || 'فشل الحساب');
+        }
 
         lastCalculation = data;
 
-        document.getElementById('calc-result-pi').textContent =
-            formatAmount(data.split.piAmount) + ' Pi';
-        document.getElementById('calc-result-yer').textContent =
-            formatAmount(data.split.yerAmount) + ' YER';
+        const piEl = document.getElementById('calc-result-pi');
+        const yerEl = document.getElementById('calc-result-yer');
+        const resultsEl = document.getElementById('calc-results');
 
-        document.getElementById('calc-results').style.display = 'block';
+        if (piEl) piEl.textContent = formatAmount(data.split.piAmount) + ' Pi';
+        if (yerEl) yerEl.textContent = formatAmount(data.split.yerAmount) + ' YER';
+        if (resultsEl) resultsEl.style.display = 'block';
+
+        console.log('✅ Calculation displayed');
 
     } catch (err) {
-        console.error('Calculator error:', err);
+        console.error('❌ Calculator error:', err);
         alert('❌ فشل الحساب: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '⚡ احسب التوزيع';
+        }
     }
 }
 
@@ -109,6 +131,21 @@ function hideCalculatorFAB() {
     const fab = document.getElementById('calculator-fab');
     if (fab) fab.style.display = 'none';
 }
+
+// إغلاق عند النقر خارج النافذة
+document.addEventListener('click', function(e) {
+    const calcModal = document.getElementById('calculator-modal');
+    if (e.target === calcModal) closeCalculator();
+
+    const txModal = document.getElementById('transactions-modal');
+    if (e.target === txModal && typeof closeTransactionsLog === 'function') closeTransactionsLog();
+
+    const walletModal = document.getElementById('wallet-modal');
+    if (e.target === walletModal && typeof closeWalletModal === 'function') closeWalletModal();
+
+    const msgModal = document.getElementById('messages-modal');
+    if (e.target === msgModal && typeof closeMessages === 'function') closeMessages();
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     hideCalculatorFAB();
