@@ -78,6 +78,9 @@ async function verifyUser(accessToken) {
     }
 }
 
+// ============================================
+// Health & Rates & Categories
+// ============================================
 app.get('/api/health', function(req, res) {
     res.json({
         service: 'gav-the-incense-route',
@@ -102,6 +105,63 @@ app.get('/api/categories', function(req, res) {
     res.json({ success: true, categories: CATEGORIES, count: CATEGORIES.length });
 });
 
+// ============================================
+// API: Auth Verify (التحقق من توكن Pi)
+// ============================================
+app.post('/api/auth/verify', async function(req, res) {
+    const accessToken = req.body.accessToken;
+
+    if (!accessToken) {
+        return res.status(400).json({ error: 'accessToken مطلوب' });
+    }
+
+    if (!PI_API_KEY) {
+        return res.status(500).json({ error: 'PI_API_KEY غير مُهيأ' });
+    }
+
+    try {
+        const response = await fetch('https://api.minepi.com/v2/me', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            return res.status(response.status).json({
+                error: 'توكن غير صالح أو منتهي الصلاحية'
+            });
+        }
+
+        const userData = await response.json();
+
+        res.json({
+            success: true,
+            user: {
+                uid: userData.uid,
+                username: userData.username
+            }
+        });
+
+    } catch (error) {
+        console.error('Auth verify error:', error);
+        res.status(500).json({ error: 'خطأ في الخادم أثناء التحقق' });
+    }
+});
+
+// ============================================
+// API: Incomplete Payments
+// ============================================
+app.post('/api/payments/incomplete', function(req, res) {
+    const payment = req.body.payment;
+    console.log('Incomplete payment received:', payment);
+    res.json({ success: true });
+});
+
+// ============================================
+// Pi Payments (GAV's own)
+// ============================================
 app.post('/api/payments/approve', async function(req, res) {
     const paymentId = req.body.paymentId;
     if (!paymentId) return res.status(400).json({ error: 'paymentId required' });
@@ -159,6 +219,9 @@ app.post('/api/payments/complete', async function(req, res) {
     }
 });
 
+// ============================================
+// Products
+// ============================================
 app.get('/api/products', function(req, res) {
     let filtered = db.products.slice();
     if (req.query.category) {
@@ -586,7 +649,6 @@ app.get('/api/festivals/:id', function(req, res) {
     res.json({ success: true, festival: festival, summary: summary });
 });
 
-// إضافة عرض منتج - مع الموافقة التلقائية
 app.post('/api/festivals/:id/products', async function(req, res) {
     const accessToken = req.body.accessToken;
     const product = req.body.product;
@@ -600,7 +662,6 @@ app.post('/api/festivals/:id/products', async function(req, res) {
     const festival = db.festivals.find(function(f) { return f.id === req.params.id; });
     if (!festival) return res.status(404).json({ error: 'Festival not found' });
 
-    // ✅ الموافقة التلقائية عند إضافة أول عرض
     let autoApproved = false;
     if (festival.status === 'PENDING') {
         festival.status = 'APPROVED';
@@ -716,17 +777,21 @@ app.delete('/api/festivals/:id/products/:offerId', async function(req, res) {
     res.json({ success: true });
 });
 
+// ============================================
+// Root
+// ============================================
 app.get('/api', function(req, res) {
     res.json({
         message: 'GAV API',
-        version: '5.0.0',
+        version: '6.0.0',
         features: {
             priceCap: '15%',
             barterFestivals: 'enabled',
             transactionsLog: 'enabled',
             piBrowserPayments: PI_API_KEY !== '',
             messages: 'enabled',
-            autoApproval: 'enabled'
+            autoApproval: 'enabled',
+            serverSideAuth: 'enabled'
         },
         categories: CATEGORIES.length,
         products: db.products.length,
@@ -744,7 +809,7 @@ app.use(function(req, res) {
 
 if (require.main === module) {
     app.listen(PORT, function() {
-        console.log('GAV v5.0.0 running on port ' + PORT);
+        console.log('GAV v6.0.0 running on port ' + PORT);
     });
 }
 
