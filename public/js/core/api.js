@@ -2,48 +2,18 @@
    GAV – The Incense Route
    Module: Unified API Client
    Path:   public/js/core/api.js
-
-   PURPOSE:
-     - Central wrapper around fetch() for all GAV endpoints.
-     - Auto-attach Authorization: Bearer <accessToken> from GavAuth.
-     - Auto-attach X-Idempotency-Key for POST/PUT/PATCH/DELETE.
-     - Centralized handling of 400 / 401 / 403 / 404 / 5xx.
-     - Timeout via AbortController on every request.
-     - Arabic error messages returned as { ok:false, error }.
-     - Emit 'gav:auth:expired' on 401 to trigger re-login.
-
-   SECURITY:
-     - Never logs accessToken.
-     - Never trusts client-side identity.
-     - Never touches PI_API_KEY (server-side only).
-
-   COMPLIANCE:
-     - Pi Network Testnet only.
-     - No GCV, no YER, no fake APIs.
    ============================================================ */
 
 (function () {
     'use strict';
 
-    /* --------------------------------------------
-       Constants
-       -------------------------------------------- */
     const API_BASE           = '/api/v1';
     const DEFAULT_TIMEOUT_MS = 20000;
     const LONG_TIMEOUT_MS    = 45000;
     const IDEMPOTENCY_HEADER = 'X-Idempotency-Key';
 
-    const LONG_TIMEOUT_ENDPOINTS = [
-        '/payments',
-        '/checkout',
-        '/pos/checkout',
-        '/orders',
-        '/invoices'
-    ];
+    const LONG_TIMEOUT_ENDPOINTS = ['/payments', '/pos/invoice', '/orders', '/invoices'];
 
-    /* --------------------------------------------
-       Duplicate-load guard
-       -------------------------------------------- */
     if (window.__GAV_API_LOADED__ === true) {
         if (window.console && console.warn) {
             console.warn('[GAV/api] Module already loaded — skipping.');
@@ -52,9 +22,6 @@
     }
     window.__GAV_API_LOADED__ = true;
 
-    /* --------------------------------------------
-       Utilities
-       -------------------------------------------- */
     function safeLog(level, msg, data) {
         if (!window.console) return;
         const fn = console[level] || console.log;
@@ -67,8 +34,8 @@
     }
 
     function generateIdempotencyKey() {
-        const ts  = Date.now().toString(36);
-        const rnd = Math.random().toString(36).slice(2, 10);
+        const ts   = Date.now().toString(36);
+        const rnd  = Math.random().toString(36).slice(2, 10);
         const rnd2 = Math.random().toString(36).slice(2, 10);
         return 'gav-' + ts + '-' + rnd + '-' + rnd2;
     }
@@ -99,9 +66,6 @@
         return window.__GAV_PI_SANDBOX__ === true;
     }
 
-    /* --------------------------------------------
-       Arabic error messages by status
-       -------------------------------------------- */
     function messageForStatus(status, serverMessage) {
         if (serverMessage && typeof serverMessage === 'string' && serverMessage.trim()) {
             return serverMessage;
@@ -111,6 +75,7 @@
             case 401: return 'انتهت صلاحية الجلسة. الرجاء تسجيل الدخول مجدداً.';
             case 403: return 'ليس لديك صلاحية لتنفيذ هذا الإجراء.';
             case 404: return 'العنصر المطلوب غير موجود.';
+            case 405: return 'العملية غير مدعومة على هذا المسار.';
             case 409: return 'تعارض في البيانات. الرجاء إعادة المحاولة.';
             case 422: return 'البيانات غير مقبولة من الخادم.';
             case 429: return 'طلبات كثيرة جداً. الرجاء المحاولة بعد قليل.';
@@ -124,9 +89,6 @@
         }
     }
 
-    /* --------------------------------------------
-       Auth expiry broadcast
-       -------------------------------------------- */
     function broadcastAuthExpired() {
         try {
             window.dispatchEvent(new CustomEvent('gav:auth:expired'));
@@ -138,9 +100,6 @@
         }
     }
 
-    /* --------------------------------------------
-       Core request
-       -------------------------------------------- */
     async function request(method, path, body, options) {
         options = options || {};
 
@@ -165,7 +124,6 @@
             headers['Content-Type'] = 'application/json';
         }
 
-        // Auto-attach Bearer token unless explicitly skipped
         if (options.skipAuth !== true) {
             const token = getAccessToken();
             if (token) {
@@ -173,14 +131,12 @@
             }
         }
 
-        // Allow callers to pass custom headers
         if (isObject(options.headers)) {
             Object.keys(options.headers).forEach(function (k) {
                 headers[k] = options.headers[k];
             });
         }
 
-        // Idempotency key for mutating requests
         if (hasBody && options.skipIdempotency !== true) {
             headers[IDEMPOTENCY_HEADER] =
                 options.idempotencyKey || generateIdempotencyKey();
@@ -222,7 +178,6 @@
 
         clearTimeout(timer);
 
-        // Parse response body (JSON or text)
         let payload = null;
         let rawText = '';
         try {
@@ -235,7 +190,6 @@
             payload = null;
         }
 
-        // Handle HTTP errors centrally
         if (!res.ok) {
             const serverMsg = payload && (payload.message || payload.error);
             const msg = messageForStatus(res.status, serverMsg);
@@ -259,7 +213,6 @@
             };
         }
 
-        // Success
         return {
             ok: true,
             status: res.status,
@@ -267,32 +220,12 @@
         };
     }
 
-    /* --------------------------------------------
-       Verb helpers
-       -------------------------------------------- */
-    function get(path, options) {
-        return request('GET', path, null, options);
-    }
+    function get(path, options) { return request('GET', path, null, options); }
+    function post(path, body, options) { return request('POST', path, body || {}, options); }
+    function put(path, body, options) { return request('PUT', path, body || {}, options); }
+    function patch(path, body, options) { return request('PATCH', path, body || {}, options); }
+    function del(path, body, options) { return request('DELETE', path, body || null, options); }
 
-    function post(path, body, options) {
-        return request('POST', path, body || {}, options);
-    }
-
-    function put(path, body, options) {
-        return request('PUT', path, body || {}, options);
-    }
-
-    function patch(path, body, options) {
-        return request('PATCH', path, body || {}, options);
-    }
-
-    function del(path, body, options) {
-        return request('DELETE', path, body || null, options);
-    }
-
-    /* --------------------------------------------
-       withAuth() — ensures a verified session exists
-       -------------------------------------------- */
     function hasVerifiedSession() {
         try {
             if (!window.GavAuth) return false;
@@ -324,74 +257,99 @@
     }
 
     /* --------------------------------------------
-       Convenience: GAV-specific endpoint wrappers
+       Endpoint wrappers — matched to api/index.js
        -------------------------------------------- */
     const endpoints = Object.freeze({
-        // Auth
+
+        /* Auth */
         verifyAuth: function (accessToken) {
-            return post('/auth/verify', { accessToken: accessToken }, { skipAuth: true });
+            return post('/auth/verify',
+                { accessToken: accessToken },
+                { skipAuth: true });
         },
 
-        // Reference index
+        /* Reference Index */
         getReferenceIndex: function () {
-            return get('/reference-index');
+            return get('/pricing/reference');
         },
 
-        // Marketplace / registry
-        listProducts:   function (q) { return get('/products' + (q ? '?q=' + encodeURIComponent(q) : '')); },
-        getProduct:     function (id) { return get('/products/' + encodeURIComponent(id)); },
-
-        // Merchant
-        listMyProducts: function () { return get('/merchant/products'); },
-        createProduct:  function (data) { return post('/merchant/products', data); },
-        updateProduct:  function (id, data) { return put('/merchant/products/' + encodeURIComponent(id), data); },
-        deleteProduct:  function (id) { return del('/merchant/products/' + encodeURIComponent(id)); },
-
-        // POS / checkout
-        posCheckout:    function (cart) { return post('/pos/checkout', { cart: cart }); },
-
-        // Orders
-        listOrders:     function () { return get('/orders'); },
-        getOrder:       function (id) { return get('/orders/' + encodeURIComponent(id)); },
-
-        // Invoices
-        listInvoices:   function () { return get('/invoices'); },
-
-        // Payments
-        listPayments:   function () { return get('/payments'); },
-        createPayment:  function (data) { return post('/payments', data); },
-        approvePayment: function (paymentId) { return post('/payments/' + encodeURIComponent(paymentId) + '/approve', {}); },
-        completePayment:function (paymentId, txid) {
-            return post('/payments/' + encodeURIComponent(paymentId) + '/complete', { txid: txid });
+        /* Products */
+        listProducts: function (q) {
+            const suffix = q ? ('?search=' + encodeURIComponent(q)) : '';
+            return get('/products' + suffix);
         },
+        getProduct: function (id) {
+            return get('/products/' + encodeURIComponent(id));
+        },
+        createProduct: function (data) {
+            return post('/products', data || {});
+        },
+        updateProduct: function (id, data) {
+            return put('/products/' + encodeURIComponent(id), data || {});
+        },
+        deleteProduct: function (id) {
+            return del('/products/' + encodeURIComponent(id));
+        },
+
+        /* Merchant */
+        listMyProducts: function () {
+            return get('/merchants/me');
+        },
+
+        /* POS */
+        posCheckout: function (items) {
+            return post('/pos/invoice', { items: items || [] });
+        },
+
+        /* Orders */
+        listOrders: function () { return get('/orders'); },
+        getOrder: function (id) { return get('/orders/' + encodeURIComponent(id)); },
+
+        /* Invoices */
+        listInvoices: function () { return get('/invoices'); },
+
+        /* Payments */
+        createPayment: function (data) {
+            return post('/payments/create', data || {});
+        },
+        approvePayment: function (paymentId) {
+            return post('/payments/approve', { paymentId: paymentId });
+        },
+        completePayment: function (paymentId, txid) {
+            return post('/payments/complete', { paymentId: paymentId, txid: txid });
+        },
+        listPayments: function () { return get('/payments'); },
         reconcilePayment: function (paymentId, txid) {
             return post('/payments/reconcile', { paymentId: paymentId, txid: txid });
         },
 
-        // Supply chain
+        /* Supply Chain */
         listSupplyChain: function () { return get('/supply-chain'); },
 
-        // Barter
-        listBarterEvents: function () { return get('/barter/events'); },
+        /* Barter */
+        listBarterEvents: function () { return get('/barter/festivals'); },
+        joinBarterEvent: function (id) {
+            return post('/barter/festivals/' + encodeURIComponent(id) + '/offers', {});
+        },
+        leaveBarterEvent: function (id) {
+            return post('/barter/festivals/' + encodeURIComponent(id) + '/leave', {});
+        },
 
-        // Audit
+        /* Audit */
         listAuditLog: function () { return get('/audit'); }
     });
 
-    /* --------------------------------------------
-       Public API
-       -------------------------------------------- */
     window.GavApi = Object.freeze({
-        request:      request,
-        get:          get,
-        post:         post,
-        put:          put,
-        patch:        patch,
-        delete:       del,
-        withAuth:     withAuth,
-        hasSession:   hasVerifiedSession,
-        endpoints:    endpoints,
-        baseUrl:      API_BASE
+        request:     request,
+        get:         get,
+        post:        post,
+        put:         put,
+        patch:       patch,
+        delete:      del,
+        withAuth:    withAuth,
+        hasSession:  hasVerifiedSession,
+        endpoints:   endpoints,
+        baseUrl:     API_BASE
     });
 
     safeLog('info', 'API client ready. base=' + API_BASE);
