@@ -20,10 +20,6 @@
       "dest": "/api/auth/verify.js"
     },
     {
-      "src": "/api/v1/(.*)",
-      "dest": "/api/v1/index.js"
-    },
-    {
       "src": "/api/(.*)",
       "dest": "/api/v1/index.js"
     },
