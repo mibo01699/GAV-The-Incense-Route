@@ -3,9 +3,7 @@
    File:   api/index.js
    Role:   Vercel Serverless Function — Unified API Handler
 
-   هذا الملف الوحيد لـ API. يعالج جميع مسارات /api/*
-
-   PART 1/3: Config · Path Normalization · Auth · Products · Pricing · Health
+   PART 1/3: Config · Normalization · Auth · Products · Pricing · Health
    ============================================================ */
 
 'use strict';
@@ -42,9 +40,7 @@ app.use(express.urlencoded({ extended: false, limit: MAX_BODY_BYTES }));
 
 /* ============================================
    PATH NORMALIZATION
-   Vercel يمرر المسار الكامل (مثل /api/v1/products).
-   هذا middleware يزيل البادئات لتعمل المسارات
-   بنفس الشكل في كل البيئات.
+   Vercel يمرر المسار الكامل — نزيل البادئة.
    ============================================ */
 app.use(function (req, res, next) {
     let url = req.url || '/';
@@ -72,7 +68,6 @@ app.use(function (req, res, next) {
     next();
 });
 
-// Request ID + security headers
 app.use(function (req, res, next) {
     const rid = 'req-' + Date.now().toString(36) + '-' +
                 Math.random().toString(36).slice(2, 8);
@@ -240,7 +235,6 @@ function auditLog(uid, action, target, meta) {
 
 /* ============================================
    ROUTE: GET /health
-   يعمل على /api/health و /api/v1/health
    ============================================ */
 app.get('/health', function (req, res) {
     return res.status(200).json({
@@ -254,7 +248,6 @@ app.get('/health', function (req, res) {
 
 /* ============================================
    ROUTE: POST /auth/verify
-   يعمل على /api/auth/verify و /api/v1/auth/verify
    ============================================ */
 app.post('/auth/verify', async function (req, res) {
     const accessToken = req.body && typeof req.body.accessToken === 'string'
@@ -602,101 +595,54 @@ app.get('/payments', requireAuth, function (req, res) {
 });
 
 /* ============================================
-   ROUTE: POST /payments/create
+   PAYMENT ROUTES — U2A Flow (Correct)
+   Pi SDK creates the payment. Server approves + completes.
    ============================================ */
-app.post('/payments/create', requireAuth, async function (req, res) {
-    if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
 
-    const body = req.body || {};
-    const amount = toFiniteNumber(body.amount);
-    const memo = String(body.memo || 'GAV payment').slice(0, 200);
-    const metadata = (body.metadata && typeof body.metadata === 'object')
-        ? body.metadata : {};
-
-    if (metadata.currency && metadata.currency !== 'PI') {
-        return fail(res, 400, 'العملة غير مدعومة. GAV يقبل Pi فقط.', 'CURRENCY');
-    }
-    if (body.currency && body.currency !== 'PI') {
-        return fail(res, 400, 'العملة غير مدعومة. GAV يقبل Pi فقط.', 'CURRENCY');
-    }
-    if (!isPositiveNumber(amount)) {
-        return fail(res, 400, 'المبلغ يجب أن يكون رقماً موجباً.');
-    }
-
-    const piRes = await fetchJson(
-        PI_API_BASE + '/payments',
-        {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Key ' + PI_API_KEY,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                payment: {
-                    amount: amount,
-                    memo: memo,
-                    metadata: Object.assign({}, metadata, {
-                        uid: req.piUser.uid,
-                        username: req.piUser.username,
-                        serverCreated: true,
-                        currency: 'PI'
-                    }),
-                    user_uid: req.piUser.uid
-                }
-            })
-        },
-        PI_ACTION_TIMEOUT
-    );
-
-    if (!piRes.ok) {
-        console.error('[GAV/api] Pi /payments failed:', piRes.status, piRes.data);
-        return fail(res, 502, 'فشل إنشاء الدفع على Pi.', 'PI_CREATE_FAILED');
-    }
-
-    const piPayment = piRes.data || {};
-    const paymentId = piPayment.identifier || piPayment.id || '';
-    if (!paymentId) {
-        return fail(res, 502, 'استجابة Pi بدون paymentId.');
-    }
-
-    const payment = {
-        paymentId: paymentId,
-        uid: req.piUser.uid,
-        username: req.piUser.username,
-        amount: amount,
-        memo: memo,
-        metadata: metadata,
-        status: 'created',
-        txid: null,
-        createdAt: nowIso()
-    };
-    DB.payments.set(paymentId, payment);
-    auditLog(req.piUser.uid, 'payment.create', paymentId, { amount: amount });
-
-    return ok(res, {
+/* ---- GET /payments/diagnostic ---- */
+app.get('/payments/diagnostic', async function (req, res) {
+    const diag = {
         ok: true,
-        paymentId: paymentId,
-        amount: amount,
-        memo: memo,
-        metadata: metadata
-    }, 201);
+        service: 'GAV-The-Incense-Route',
+        environment: 'testnet',
+        timestamp: nowIso(),
+        piApiKeyConfigured: !!PI_API_KEY,
+        piApiKeyPrefix: PI_API_KEY ? PI_API_KEY.slice(0, 8) + '...' : null,
+        piApiKeyLength: PI_API_KEY ? PI_API_KEY.length : 0,
+        piApiBase: PI_API_BASE,
+        sandboxMode: SANDBOX_MODE
+    };
+
+    if (PI_API_KEY) {
+        try {
+            const testRes = await fetchJson(
+                PI_API_BASE + '/me',
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Key ' + PI_API_KEY,
+                        'Accept': 'application/json'
+                    }
+                },
+                8000
+            );
+            diag.piApiReachable = true;
+            diag.piApiStatus = testRes.status;
+        } catch (err) {
+            diag.piApiReachable = false;
+            diag.piApiError = String(err && err.message);
+        }
+    }
+
+    return res.status(200).json(diag);
 });
 
-/* ============================================
-   ROUTE: POST /payments/approve
-   ============================================ */
+/* ---- POST /payments/approve ---- */
 app.post('/payments/approve', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
 
     const paymentId = String((req.body && req.body.paymentId) || '').trim();
     if (!paymentId) return fail(res, 400, 'paymentId مطلوب.');
-
-    const local = DB.payments.get(paymentId);
-    if (!local) return fail(res, 404, 'الدفعة غير معروفة على الخادم.');
-    if (local.uid !== req.piUser.uid) {
-        return fail(res, 403, 'ليس لديك صلاحية اعتماد هذه الدفعة.');
-    }
 
     const piRes = await fetchJson(
         PI_API_BASE + '/payments/' + encodeURIComponent(paymentId) + '/approve',
@@ -714,20 +660,35 @@ app.post('/payments/approve', requireAuth, async function (req, res) {
 
     if (!piRes.ok) {
         console.error('[GAV/api] Pi approve failed:', piRes.status, piRes.data);
-        return fail(res, 502, 'فشل اعتماد الدفع على Pi.', 'PI_APPROVE_FAILED');
+
+        let msg = 'فشل اعتماد الدفع على Pi.';
+        if (piRes.status === 404) {
+            msg = 'الدفعة غير موجودة على Pi.';
+        } else if (piRes.status === 400) {
+            msg = 'بيانات الدفع غير مقبولة.';
+        } else if (piRes.status === 401) {
+            msg = 'مفتاح API غير صالح. تحقق من إعدادات Vercel.';
+        }
+
+        return fail(res, 502, msg, 'PI_APPROVE_FAILED');
     }
 
-    local.status = 'approved';
-    local.approvedAt = nowIso();
-    DB.payments.set(paymentId, local);
-    auditLog(req.piUser.uid, 'payment.approve', paymentId);
+    auditLog(req.piUser.uid, 'payment.approve', paymentId, {});
+
+    const existing = DB.payments.get(paymentId) || {
+        paymentId: paymentId,
+        uid: req.piUser.uid,
+        username: req.piUser.username,
+        createdAt: nowIso()
+    };
+    existing.status = 'approved';
+    existing.approvedAt = nowIso();
+    DB.payments.set(paymentId, existing);
 
     return ok(res, { ok: true, approved: true, paymentId: paymentId });
 });
 
-/* ============================================
-   ROUTE: POST /payments/complete
-   ============================================ */
+/* ---- POST /payments/complete ---- */
 app.post('/payments/complete', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
 
@@ -736,12 +697,6 @@ app.post('/payments/complete', requireAuth, async function (req, res) {
 
     if (!paymentId) return fail(res, 400, 'paymentId مطلوب.');
     if (!txid)      return fail(res, 400, 'txid مطلوب.');
-
-    const local = DB.payments.get(paymentId);
-    if (!local) return fail(res, 404, 'الدفعة غير معروفة على الخادم.');
-    if (local.uid !== req.piUser.uid) {
-        return fail(res, 403, 'ليس لديك صلاحية إكمال هذه الدفعة.');
-    }
 
     const piRes = await fetchJson(
         PI_API_BASE + '/payments/' + encodeURIComponent(paymentId) + '/complete',
@@ -759,21 +714,37 @@ app.post('/payments/complete', requireAuth, async function (req, res) {
 
     if (!piRes.ok) {
         console.error('[GAV/api] Pi complete failed:', piRes.status, piRes.data);
-        return fail(res, 502, 'فشل إكمال الدفع على Pi.', 'PI_COMPLETE_FAILED');
+
+        let msg = 'فشل إكمال الدفع على Pi.';
+        if (piRes.status === 404) msg = 'الدفعة غير موجودة على Pi.';
+        else if (piRes.status === 400) msg = 'بيانات الإكمال غير مقبولة.';
+        else if (piRes.status === 401) msg = 'مفتاح API غير صالح.';
+
+        return fail(res, 502, msg, 'PI_COMPLETE_FAILED');
     }
 
-    local.status = 'completed';
-    local.txid = txid;
-    local.completedAt = nowIso();
-    DB.payments.set(paymentId, local);
+    const existing = DB.payments.get(paymentId) || {
+        paymentId: paymentId,
+        uid: req.piUser.uid,
+        username: req.piUser.username,
+        createdAt: nowIso()
+    };
+    existing.status = 'completed';
+    existing.txid = txid;
+    existing.completedAt = nowIso();
+    DB.payments.set(paymentId, existing);
+
     auditLog(req.piUser.uid, 'payment.complete', paymentId, { txid: txid });
 
-    return ok(res, { ok: true, completed: true, paymentId: paymentId, txid: txid });
+    return ok(res, {
+        ok: true,
+        completed: true,
+        paymentId: paymentId,
+        txid: txid
+    });
 });
 
-/* ============================================
-   ROUTE: POST /payments/reconcile
-   ============================================ */
+/* ---- POST /payments/reconcile ---- */
 app.post('/payments/reconcile', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
 
@@ -809,7 +780,6 @@ app.post('/payments/reconcile', requireAuth, async function (req, res) {
         status: 'unknown',
         createdAt: nowIso()
     };
-
     local.status = piStatus;
     if (piTxid) local.txid = piTxid;
     local.reconciledAt = nowIso();
@@ -890,7 +860,59 @@ app.get('/barter/festivals', function (req, res) {
 });
 
 /* ============================================
+   ROUTE: POST /barter/festivals
+   Create a new festival
+   ============================================ */
+app.post('/barter/festivals', requireAuth, function (req, res) {
+    const body = req.body || {};
+    const name = String(body.name || '').trim();
+    const location = String(body.location || '').trim();
+    const startAt = body.startAt ? String(body.startAt) : nowIso();
+    const endAt = body.endAt ? String(body.endAt) : null;
+    const wantedItems = Array.isArray(body.wantedItems) ? body.wantedItems : [];
+
+    if (!name || name.length < 2) {
+        return fail(res, 400, 'اسم الفعالية مطلوب.');
+    }
+
+    const festival = {
+        id: generateId('fst'),
+        name: name,
+        location: location || '—',
+        startAt: startAt,
+        endAt: endAt,
+        status: 'open',
+        participants: new Set([req.piUser.uid]),
+        offeredItems: [],
+        wantedItems: wantedItems,
+        createdBy: req.piUser.uid,
+        createdByName: req.piUser.username,
+        createdAt: nowIso()
+    };
+
+    DB.festivals.set(festival.id, festival);
+    auditLog(req.piUser.uid, 'barter.festival.create', festival.id, { name: name });
+
+    return ok(res, {
+        ok: true,
+        festival: {
+            id: festival.id,
+            name: festival.name,
+            location: festival.location,
+            startAt: festival.startAt,
+            endAt: festival.endAt,
+            status: festival.status,
+            participantsCount: festival.participants.size,
+            offeredItems: [],
+            wantedItems: festival.wantedItems,
+            joined: true
+        }
+    }, 201);
+});
+
+/* ============================================
    ROUTE: POST /barter/festivals/:id/offers
+   Join a festival by adding an offer
    ============================================ */
 app.post('/barter/festivals/:id/offers', requireAuth, function (req, res) {
     const f = DB.festivals.get(req.params.id);
