@@ -436,3 +436,533 @@ app.delete('/products/:id', requireAuth, function (req, res) {
     auditLog(req.piUser.uid, 'product.delete', p.id);
     return ok(res, { ok: true, deleted: p.id });
 });
+
+/* ============================================
+   ROUTE: GET /merchants/me
+   ============================================ */
+app.get('/merchants/me', requireAuth, function (req, res) {
+    const mine = Array.from(DB.products.values())
+        .filter(function (p) { return p.merchantUid === req.piUser.uid; });
+
+    const activeCount = mine.filter(function (p) { return p.active !== false; }).length;
+
+    const myOrders = Array.from(DB.orders.values())
+        .filter(function (o) { return o.sellerUid === req.piUser.uid; });
+
+    const pendingOrders = myOrders.filter(function (o) {
+        return o.status === 'pending' || o.status === 'paid';
+    }).length;
+
+    const salesTotal = myOrders
+        .filter(function (o) { return o.status === 'completed'; })
+        .reduce(function (sum, o) { return sum + (Number(o.totalPi) || 0); }, 0);
+
+    return ok(res, {
+        ok: true,
+        products: mine,
+        activeProducts: activeCount,
+        pendingOrders: pendingOrders,
+        salesTotal: Number(salesTotal.toFixed(4))
+    });
+});
+
+/* ============================================
+   ROUTE: POST /pos/invoice
+   ============================================ */
+app.post('/pos/invoice', requireAuth, function (req, res) {
+    const body = req.body || {};
+    const items = Array.isArray(body.items) ? body.items : [];
+
+    if (!items.length) return fail(res, 400, 'السلة فارغة.');
+
+    const normalized = [];
+    let totalPi = 0;
+
+    for (let i = 0; i < items.length; i++) {
+        const it = items[i] || {};
+        const pid = String(it.productId || it.id || '').trim();
+        const qty = parseInt(it.quantity != null ? it.quantity : it.qty, 10);
+
+        if (!pid || !isFinite(qty) || qty <= 0) {
+            return fail(res, 400, 'عنصر سلة غير صالح.');
+        }
+
+        const p = DB.products.get(pid);
+        if (!p) return fail(res, 404, 'أحد المنتجات غير موجود.');
+        if (p.active === false) return fail(res, 400, 'منتج غير نشط.');
+        if (typeof p.stock === 'number' && p.stock < qty) {
+            return fail(res, 400, 'المخزون غير كافٍ للمنتج: ' + p.name);
+        }
+
+        const lineTotal = Number(p.price) * qty;
+        totalPi += lineTotal;
+
+        normalized.push({
+            productId: p.id,
+            name: p.name,
+            price: Number(p.price),
+            quantity: qty,
+            lineTotal: Number(lineTotal.toFixed(4)),
+            merchantUid: p.merchantUid
+        });
+    }
+
+    const orderId = generateId('ord');
+    const invoiceId = generateId('inv');
+
+    const order = {
+        id: orderId,
+        buyerUid: req.piUser.uid,
+        buyerName: req.piUser.username,
+        sellerUid: normalized[0].merchantUid,
+        items: normalized,
+        totalPi: Number(totalPi.toFixed(4)),
+        currency: 'PI',
+        status: 'pending',
+        invoiceId: invoiceId,
+        createdAt: nowIso()
+    };
+    DB.orders.set(orderId, order);
+
+    const invoice = {
+        id: invoiceId,
+        orderId: orderId,
+        buyerUid: req.piUser.uid,
+        totalPi: order.totalPi,
+        currency: 'PI',
+        status: 'unpaid',
+        createdAt: nowIso()
+    };
+    DB.invoices.set(invoiceId, invoice);
+
+    auditLog(req.piUser.uid, 'pos.invoice.create', orderId, {
+        totalPi: order.totalPi,
+        items: normalized.length
+    });
+
+    return ok(res, {
+        ok: true,
+        order: order,
+        invoice: invoice,
+        totalPi: order.totalPi,
+        currency: 'PI'
+    }, 201);
+});
+
+/* ============================================
+   ROUTE: GET /orders
+   ============================================ */
+app.get('/orders', requireAuth, function (req, res) {
+    const mine = Array.from(DB.orders.values())
+        .filter(function (o) {
+            return o.buyerUid === req.piUser.uid ||
+                   o.sellerUid === req.piUser.uid;
+        })
+        .sort(function (a, b) {
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+
+    return ok(res, { ok: true, orders: mine });
+});
+
+/* ============================================
+   ROUTE: GET /orders/:id
+   ============================================ */
+app.get('/orders/:id', requireAuth, function (req, res) {
+    const o = DB.orders.get(req.params.id);
+    if (!o) return fail(res, 404, 'الطلب غير موجود.');
+    if (o.buyerUid !== req.piUser.uid && o.sellerUid !== req.piUser.uid) {
+        return fail(res, 403, 'ليس لديك صلاحية عرض هذا الطلب.');
+    }
+    return ok(res, { ok: true, order: o });
+});
+
+/* ============================================
+   ROUTE: GET /invoices
+   ============================================ */
+app.get('/invoices', requireAuth, function (req, res) {
+    const mine = Array.from(DB.invoices.values())
+        .filter(function (inv) { return inv.buyerUid === req.piUser.uid; })
+        .sort(function (a, b) {
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+    return ok(res, { ok: true, invoices: mine });
+});
+
+/* ============================================
+   ROUTE: GET /payments
+   ============================================ */
+app.get('/payments', requireAuth, function (req, res) {
+    const mine = Array.from(DB.payments.values())
+        .filter(function (p) { return p.uid === req.piUser.uid; })
+        .sort(function (a, b) {
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+    return ok(res, { ok: true, payments: mine });
+});
+
+/* ============================================
+   ROUTE: POST /payments/create
+   ============================================ */
+app.post('/payments/create', requireAuth, async function (req, res) {
+    if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
+
+    const body = req.body || {};
+    const amount = toFiniteNumber(body.amount);
+    const memo = String(body.memo || 'GAV payment').slice(0, 200);
+    const metadata = (body.metadata && typeof body.metadata === 'object')
+        ? body.metadata : {};
+
+    if (metadata.currency && metadata.currency !== 'PI') {
+        return fail(res, 400, 'العملة غير مدعومة. GAV يقبل Pi فقط.', 'CURRENCY');
+    }
+    if (body.currency && body.currency !== 'PI') {
+        return fail(res, 400, 'العملة غير مدعومة. GAV يقبل Pi فقط.', 'CURRENCY');
+    }
+    if (!isPositiveNumber(amount)) {
+        return fail(res, 400, 'المبلغ يجب أن يكون رقماً موجباً.');
+    }
+
+    const piRes = await fetchJson(
+        PI_API_BASE + '/payments',
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Key ' + PI_API_KEY,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                payment: {
+                    amount: amount,
+                    memo: memo,
+                    metadata: Object.assign({}, metadata, {
+                        uid: req.piUser.uid,
+                        username: req.piUser.username,
+                        serverCreated: true,
+                        currency: 'PI'
+                    }),
+                    user_uid: req.piUser.uid
+                }
+            })
+        },
+        PI_ACTION_TIMEOUT
+    );
+
+    if (!piRes.ok) {
+        console.error('[GAV/api] Pi /payments failed:', piRes.status, piRes.data);
+        return fail(res, 502, 'فشل إنشاء الدفع على Pi.', 'PI_CREATE_FAILED');
+    }
+
+    const piPayment = piRes.data || {};
+    const paymentId = piPayment.identifier || piPayment.id || '';
+    if (!paymentId) {
+        return fail(res, 502, 'استجابة Pi بدون paymentId.');
+    }
+
+    const payment = {
+        paymentId: paymentId,
+        uid: req.piUser.uid,
+        username: req.piUser.username,
+        amount: amount,
+        memo: memo,
+        metadata: metadata,
+        status: 'created',
+        txid: null,
+        createdAt: nowIso()
+    };
+    DB.payments.set(paymentId, payment);
+    auditLog(req.piUser.uid, 'payment.create', paymentId, { amount: amount });
+
+    return ok(res, {
+        ok: true,
+        paymentId: paymentId,
+        amount: amount,
+        memo: memo,
+        metadata: metadata
+    }, 201);
+});
+
+/* ============================================
+   ROUTE: POST /payments/approve
+   ============================================ */
+app.post('/payments/approve', requireAuth, async function (req, res) {
+    if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
+
+    const paymentId = String((req.body && req.body.paymentId) || '').trim();
+    if (!paymentId) return fail(res, 400, 'paymentId مطلوب.');
+
+    const local = DB.payments.get(paymentId);
+    if (!local) return fail(res, 404, 'الدفعة غير معروفة على الخادم.');
+    if (local.uid !== req.piUser.uid) {
+        return fail(res, 403, 'ليس لديك صلاحية اعتماد هذه الدفعة.');
+    }
+
+    const piRes = await fetchJson(
+        PI_API_BASE + '/payments/' + encodeURIComponent(paymentId) + '/approve',
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Key ' + PI_API_KEY,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({})
+        },
+        PI_ACTION_TIMEOUT
+    );
+
+    if (!piRes.ok) {
+        console.error('[GAV/api] Pi approve failed:', piRes.status, piRes.data);
+        return fail(res, 502, 'فشل اعتماد الدفع على Pi.', 'PI_APPROVE_FAILED');
+    }
+
+    local.status = 'approved';
+    local.approvedAt = nowIso();
+    DB.payments.set(paymentId, local);
+    auditLog(req.piUser.uid, 'payment.approve', paymentId);
+
+    return ok(res, { ok: true, approved: true, paymentId: paymentId });
+});
+
+/* ============================================
+   ROUTE: POST /payments/complete
+   ============================================ */
+app.post('/payments/complete', requireAuth, async function (req, res) {
+    if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
+
+    const paymentId = String((req.body && req.body.paymentId) || '').trim();
+    const txid      = String((req.body && req.body.txid)      || '').trim();
+
+    if (!paymentId) return fail(res, 400, 'paymentId مطلوب.');
+    if (!txid)      return fail(res, 400, 'txid مطلوب.');
+
+    const local = DB.payments.get(paymentId);
+    if (!local) return fail(res, 404, 'الدفعة غير معروفة على الخادم.');
+    if (local.uid !== req.piUser.uid) {
+        return fail(res, 403, 'ليس لديك صلاحية إكمال هذه الدفعة.');
+    }
+
+    const piRes = await fetchJson(
+        PI_API_BASE + '/payments/' + encodeURIComponent(paymentId) + '/complete',
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Key ' + PI_API_KEY,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ txid: txid })
+        },
+        PI_ACTION_TIMEOUT
+    );
+
+    if (!piRes.ok) {
+        console.error('[GAV/api] Pi complete failed:', piRes.status, piRes.data);
+        return fail(res, 502, 'فشل إكمال الدفع على Pi.', 'PI_COMPLETE_FAILED');
+    }
+
+    local.status = 'completed';
+    local.txid = txid;
+    local.completedAt = nowIso();
+    DB.payments.set(paymentId, local);
+    auditLog(req.piUser.uid, 'payment.complete', paymentId, { txid: txid });
+
+    return ok(res, { ok: true, completed: true, paymentId: paymentId, txid: txid });
+});
+
+/* ============================================
+   ROUTE: POST /payments/reconcile
+   ============================================ */
+app.post('/payments/reconcile', requireAuth, async function (req, res) {
+    if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
+
+    const paymentId = String((req.body && req.body.paymentId) || '').trim();
+    const txid      = req.body && req.body.txid ? String(req.body.txid).trim() : '';
+
+    if (!paymentId) return fail(res, 400, 'paymentId مطلوب.');
+
+    const piRes = await fetchJson(
+        PI_API_BASE + '/payments/' + encodeURIComponent(paymentId),
+        {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Key ' + PI_API_KEY,
+                'Accept': 'application/json'
+            }
+        },
+        PI_ACTION_TIMEOUT
+    );
+
+    if (!piRes.ok) {
+        return fail(res, 502, 'تعذّر جلب حالة الدفعة من Pi.', 'PI_FETCH_FAILED');
+    }
+
+    const piPayment = piRes.data || {};
+    const piStatus = piPayment.status || 'unknown';
+    const piTxid   = (piPayment.transaction && piPayment.transaction.txid) || txid || null;
+
+    const local = DB.payments.get(paymentId) || {
+        paymentId: paymentId,
+        uid: req.piUser.uid,
+        username: req.piUser.username,
+        status: 'unknown',
+        createdAt: nowIso()
+    };
+
+    local.status = piStatus;
+    if (piTxid) local.txid = piTxid;
+    local.reconciledAt = nowIso();
+    DB.payments.set(paymentId, local);
+
+    auditLog(req.piUser.uid, 'payment.reconcile', paymentId, {
+        piStatus: piStatus,
+        txid: piTxid
+    });
+
+    return ok(res, {
+        ok: true,
+        paymentId: paymentId,
+        status: piStatus,
+        txid: piTxid
+    });
+});
+
+/* ============================================
+   ROUTE: GET /supply-chain
+   ============================================ */
+app.get('/supply-chain', function (req, res) {
+    const records = [];
+
+    for (const p of DB.products.values()) {
+        records.push({
+            id: 'sc_' + p.id + '_origin',
+            productId: p.id,
+            productName: p.name,
+            merchantName: p.merchantName,
+            stage: 'origin',
+            location: '—',
+            batchId: null,
+            verified: true,
+            timestamp: p.createdAt
+        });
+    }
+
+    for (const o of DB.orders.values()) {
+        if (o.status === 'completed') {
+            records.push({
+                id: 'sc_' + o.id + '_delivered',
+                productId: o.items && o.items[0] ? o.items[0].productId : null,
+                productName: o.items && o.items[0] ? o.items[0].name : 'طلب',
+                merchantName: o.buyerName || '—',
+                stage: 'delivered',
+                location: '—',
+                batchId: o.id,
+                verified: true,
+                timestamp: o.createdAt
+            });
+        }
+    }
+
+    return ok(res, { ok: true, records: records });
+});
+
+/* ============================================
+   ROUTE: GET /barter/festivals
+   ============================================ */
+app.get('/barter/festivals', function (req, res) {
+    const list = Array.from(DB.festivals.values()).map(function (f) {
+        return {
+            id: f.id,
+            name: f.name,
+            location: f.location,
+            startAt: f.startAt,
+            endAt: f.endAt,
+            status: f.status,
+            participantsCount: f.participants ? f.participants.size : 0,
+            offeredItems: f.offeredItems || [],
+            wantedItems: f.wantedItems || [],
+            joined: false
+        };
+    });
+
+    return ok(res, { ok: true, festivals: list });
+});
+
+/* ============================================
+   ROUTE: POST /barter/festivals/:id/offers
+   ============================================ */
+app.post('/barter/festivals/:id/offers', requireAuth, function (req, res) {
+    const f = DB.festivals.get(req.params.id);
+    if (!f) return fail(res, 404, 'الفعالية غير موجودة.');
+
+    if (f.status === 'closed' || f.status === 'ended') {
+        return fail(res, 400, 'الفعالية مغلقة.');
+    }
+
+    if (!f.participants) f.participants = new Set();
+    f.participants.add(req.piUser.uid);
+
+    if (!Array.isArray(f.offeredItems)) f.offeredItems = [];
+    const offer = req.body && req.body.offer ? req.body.offer : null;
+    if (offer) {
+        f.offeredItems.push({
+            uid: req.piUser.uid,
+            username: req.piUser.username,
+            offer: String(offer).slice(0, 500),
+            at: nowIso()
+        });
+    }
+
+    DB.festivals.set(f.id, f);
+    auditLog(req.piUser.uid, 'barter.join', f.id);
+    return ok(res, { ok: true, joined: true, festivalId: f.id });
+});
+
+/* ============================================
+   ROUTE: POST /barter/festivals/:id/leave
+   ============================================ */
+app.post('/barter/festivals/:id/leave', requireAuth, function (req, res) {
+    const f = DB.festivals.get(req.params.id);
+    if (!f) return fail(res, 404, 'الفعالية غير موجودة.');
+
+    if (f.participants && f.participants.has) {
+        f.participants.delete(req.piUser.uid);
+    }
+
+    DB.festivals.set(f.id, f);
+    auditLog(req.piUser.uid, 'barter.leave', f.id);
+    return ok(res, { ok: true, joined: false, festivalId: f.id });
+});
+
+/* ============================================
+   ROUTE: GET /audit
+   ============================================ */
+app.get('/audit', requireAuth, function (req, res) {
+    const mine = DB.audit.filter(function (a) {
+        return a.uid === req.piUser.uid;
+    });
+    const list = mine.slice().reverse().slice(0, 200);
+    return ok(res, { ok: true, entries: list });
+});
+
+/* ============================================
+   404 for unknown routes
+   ============================================ */
+app.use(function (req, res) {
+    return fail(res, 404, 'المسار غير موجود.', 'NOT_FOUND');
+});
+
+/* ============================================
+   Global error handler
+   ============================================ */
+app.use(function (err, req, res, next) {
+    console.error('[GAV/api] Unhandled error:', err);
+    if (res.headersSent) return next(err);
+    return fail(res, 500, 'خطأ داخلي في الخادم.', 'INTERNAL_ERROR');
+});
+
+/* ============================================
+   EXPORT
+   ============================================ */
+module.exports = app;
