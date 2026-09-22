@@ -1,6 +1,5 @@
 /* ============================================================
-   GAV – The Incense Route
-   Tests: GET /api/health
+   GAV – Tests: GET /health
    Path:  tests/api/health.test.js
    ============================================================ */
 
@@ -9,9 +8,9 @@
 process.env.PI_API_KEY = process.env.PI_API_KEY || 'test-key-health';
 
 const request = require('supertest');
-const app = require('../../api/v1/index');
+const app = require('../../api/index');
 
-describe('GET /api/health', function () {
+describe('GET /health', function () {
 
     test('returns 200 with UP status', async function () {
         const res = await request(app).get('/api/health');
@@ -37,8 +36,14 @@ describe('GET /api/health', function () {
         expect(res.headers['content-type']).toMatch(/json/);
     });
 
-    test('also works with /health (after normalization)', async function () {
+    test('works without prefix (internal route)', async function () {
         const res = await request(app).get('/health');
+        expect(res.status).toBe(200);
+        expect(res.body.status).toBe('UP');
+    });
+
+    test('works with /api/v1/health prefix too', async function () {
+        const res = await request(app).get('/api/v1/health');
         expect(res.status).toBe(200);
         expect(res.body.status).toBe('UP');
     });
