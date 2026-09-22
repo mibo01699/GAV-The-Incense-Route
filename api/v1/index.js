@@ -3,7 +3,7 @@
    File:   api/v1/index.js
    Role:   Vercel Serverless Function — Main API
 
-   PART 1/3: Config · Middleware · Auth · Products · Pricing
+   PART 1/3: Config · Normalization · Auth · Products · Pricing · Health
    ============================================================ */
 
 'use strict';
@@ -38,7 +38,35 @@ app.use(cors({
 app.use(express.json({ limit: MAX_BODY_BYTES }));
 app.use(express.urlencoded({ extended: false, limit: MAX_BODY_BYTES }));
 
-// Request ID + basic headers
+/* ============================================
+   PATH NORMALIZATION
+   Vercel passes the FULL original URL to the function.
+   We normalize by stripping /api/v1 or /api prefix
+   so the same Express routes work in every environment.
+   ============================================ */
+app.use(function (req, res, next) {
+    let url = req.url || '/';
+
+    // Strip /api/v1 prefix
+    if (url === '/api/v1' || url === '/api/v1/') {
+        url = '/';
+    } else if (url.indexOf('/api/v1/') === 0) {
+        url = url.slice('/api/v1'.length);
+    }
+    // Strip /api prefix (for /api/health etc.)
+    else if (url === '/api' || url === '/api/') {
+        url = '/';
+    } else if (url.indexOf('/api/') === 0) {
+        url = url.slice('/api'.length);
+    }
+
+    if (!url || url.charAt(0) !== '/') url = '/' + url;
+
+    req.url = url;
+    next();
+});
+
+// Request ID + security headers
 app.use(function (req, res, next) {
     const rid = 'req-' + Date.now().toString(36) + '-' +
                 Math.random().toString(36).slice(2, 8);
@@ -206,6 +234,20 @@ function auditLog(uid, action, target, meta) {
 }
 
 /* ============================================
+   ROUTE: GET /health
+   Public. No auth. Testnet indicator only.
+   ============================================ */
+app.get('/health', function (req, res) {
+    return res.status(200).json({
+        ok: true,
+        status: 'UP',
+        service: 'GAV-The-Incense-Route',
+        environment: 'testnet',
+        timestamp: nowIso()
+    });
+});
+
+/* ============================================
    ROUTE: POST /auth/verify
    ============================================ */
 app.post('/auth/verify', async function (req, res) {
@@ -232,7 +274,7 @@ app.post('/auth/verify', async function (req, res) {
 
 /* ============================================
    ROUTE: GET /pricing/reference
-   Internal reference index. NOT GCV. Pi-only.
+   Internal reference only. NOT GCV.
    ============================================ */
 app.get('/pricing/reference', function (req, res) {
     const rows = [];
@@ -421,7 +463,6 @@ app.get('/merchants/me', requireAuth, function (req, res) {
 
 /* ============================================
    ROUTE: POST /pos/invoice
-   Body: { items: [{ productId, quantity }] }
    ============================================ */
 app.post('/pos/invoice', requireAuth, function (req, res) {
     const body = req.body || {};
@@ -557,6 +598,8 @@ app.get('/payments', requireAuth, function (req, res) {
 
 /* ============================================
    ROUTE: POST /payments/create
+   Server creates payment via Pi API — never trusts client amount blindly.
+   Pi-only. Rejects any other currency.
    ============================================ */
 app.post('/payments/create', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
@@ -605,8 +648,7 @@ app.post('/payments/create', requireAuth, async function (req, res) {
 
     if (!piRes.ok) {
         console.error('[GAV/v1] Pi /payments failed:', piRes.status, piRes.data);
-        return fail(res, 502, 'فشل إنشاء الدفع على Pi.',
-            'PI_CREATE_FAILED');
+        return fail(res, 502, 'فشل إنشاء الدفع على Pi.', 'PI_CREATE_FAILED');
     }
 
     const piPayment = piRes.data || {};
@@ -640,6 +682,7 @@ app.post('/payments/create', requireAuth, async function (req, res) {
 
 /* ============================================
    ROUTE: POST /payments/approve
+   Server-side only. Client never calls Pi.approvePayment directly.
    ============================================ */
 app.post('/payments/approve', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
@@ -682,6 +725,7 @@ app.post('/payments/approve', requireAuth, async function (req, res) {
 
 /* ============================================
    ROUTE: POST /payments/complete
+   Server-side only. Client never calls Pi.completePayment directly.
    ============================================ */
 app.post('/payments/complete', requireAuth, async function (req, res) {
     if (!PI_API_KEY) return fail(res, 500, 'خادم GAV غير مهيأ للمدفوعات.');
@@ -750,8 +794,7 @@ app.post('/payments/reconcile', requireAuth, async function (req, res) {
     );
 
     if (!piRes.ok) {
-        return fail(res, 502, 'تعذّر جلب حالة الدفعة من Pi.',
-            'PI_FETCH_FAILED');
+        return fail(res, 502, 'تعذّر جلب حالة الدفعة من Pi.', 'PI_FETCH_FAILED');
     }
 
     const piPayment = piRes.data || {};
@@ -786,6 +829,7 @@ app.post('/payments/reconcile', requireAuth, async function (req, res) {
 
 /* ============================================
    ROUTE: GET /supply-chain
+   Read-only aggregated view.
    ============================================ */
 app.get('/supply-chain', function (req, res) {
     const records = [];
@@ -903,7 +947,7 @@ app.get('/audit', requireAuth, function (req, res) {
 });
 
 /* ============================================
-   404 for unknown /api/v1/* routes
+   404 for unknown routes
    ============================================ */
 app.use(function (req, res) {
     return fail(res, 404, 'المسار غير موجود.', 'NOT_FOUND');
