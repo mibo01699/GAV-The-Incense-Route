@@ -1,8 +1,6 @@
 /* ============================================================
    GAV – Module: Pi Payment Flow (Correct U2A Flow)
    Path:   public/js/modules/payment.js
-
-   Pi الرسمي: الواجهة تنشئ، الخادم يعتمد ويكمل.
    ============================================================ */
 
 (function () {
@@ -13,7 +11,7 @@
     if (window.__GAV_PAYMENT_LOADED__ === true) return;
     window.__GAV_PAYMENT_LOADED__ = true;
 
-    const state = { inFlight: false, lastResult: null, currentPaymentId: null };
+    const state = { inFlight: false, lastResult: null };
 
     function safeLog(level, msg, data) {
         if (!window.console) return;
@@ -38,7 +36,6 @@
     function toPiAmount(amount) {
         const n = Number(amount);
         if (!isFinite(n) || n <= 0) return null;
-        // Pi يتوقع decimal number، وليس string
         return Math.round(n * 10000000) / 10000000;
     }
 
@@ -48,13 +45,11 @@
                 return window.GavApi.endpoints.approvePayment(paymentId);
             });
             if (!res || !res.ok) {
-                safeLog('warn', 'approve failed:', res);
                 return { ok: false, error: (res && res.error) || 'فشل الاعتماد.' };
             }
             return { ok: true };
         } catch (err) {
-            safeLog('error', 'approve threw:', err);
-            return { ok: false, error: 'خطأ شبكة أثناء الاعتماد.' };
+            return { ok: false, error: 'خطأ شبكة.' };
         }
     }
 
@@ -64,27 +59,14 @@
                 return window.GavApi.endpoints.completePayment(paymentId, txid);
             });
             if (!res || !res.ok) {
-                safeLog('warn', 'complete failed:', res);
                 return { ok: false, error: (res && res.error) || 'فشل الإكمال.' };
             }
             return { ok: true };
         } catch (err) {
-            safeLog('error', 'complete threw:', err);
-            return { ok: false, error: 'خطأ شبكة أثناء الإكمال.' };
+            return { ok: false, error: 'خطأ شبكة.' };
         }
     }
 
-    /**
-     * startCheckout
-     * options: { source, items: [{productId, quantity}], total, currency }
-     *
-     * التدفق الصحيح (U2A):
-     *   1. Pi.createPayment() ← الواجهة
-     *   2. onReadyForServerApproval(paymentId) → POST /approve
-     *   3. المستخدم يدفع
-     *   4. onReadyForServerCompletion(paymentId, txid) → POST /complete
-     *   5. onCancel / onError → رسائل عربية
-     */
     async function startCheckout(options) {
         options = options || {};
 
@@ -92,13 +74,13 @@
             return { ok: false, error: 'عملية دفع أخرى قيد التنفيذ.' };
         }
 
-        const source   = String(options.source || 'gav');
+        const source = String(options.source || 'gav');
         const currency = String(options.currency || 'PI').toUpperCase();
-        const items    = Array.isArray(options.items) ? options.items : [];
-        const total    = Number(options.total);
+        const items = Array.isArray(options.items) ? options.items : [];
+        const total = Number(options.total);
 
         if (currency !== 'PI') return { ok: false, error: 'العملة غير مدعومة. Pi فقط.' };
-        if (!items.length)     return { ok: false, error: 'السلة فارغة.' };
+        if (!items.length) return { ok: false, error: 'السلة فارغة.' };
         if (!isFinite(total) || total <= 0) return { ok: false, error: 'المبلغ غير صالح.' };
 
         if (!window.GavApi || !window.GavApi.hasSession || !window.GavApi.hasSession()) {
@@ -116,13 +98,7 @@
         if (!amount) { state.inFlight = false; return { ok: false, error: 'تعذّر حساب المبلغ.' }; }
 
         const memo = ('GAV/' + source).slice(0, 100);
-        const metadata = {
-            source: source,
-            currency: 'PI',
-            items: items,
-            total: amount,
-            createdAt: Date.now()
-        };
+        const metadata = { source, currency: 'PI', items, total: amount, createdAt: Date.now() };
 
         return await new Promise(function (resolve) {
             let settled = false;
@@ -132,7 +108,6 @@
                 settled = true;
                 state.inFlight = false;
                 state.lastResult = result;
-                if (result.ok) state.currentPaymentId = null;
                 resolve(result);
             }
 
@@ -145,55 +120,37 @@
 
             try {
                 window.Pi.createPayment(
+                    { amount, memo, metadata },
                     {
-                        amount: amount,
-                        memo: memo,
-                        metadata: metadata
-                    },
-                    {
-                        /* -------- المرحلة 2: الاعتماد -------- */
                         onReadyForServerApproval: function (paymentId) {
                             safeLog('info', 'onReadyForServerApproval: ' + paymentId);
-                            state.currentPaymentId = paymentId;
-
                             approveOnServer(paymentId).then(function (ap) {
                                 if (!ap.ok) {
                                     notify('error', ap.error || 'فشل الاعتماد.');
                                     clearTimeout(hardTimer);
-                                    finalize({ ok: false, error: ap.error, paymentId: paymentId });
-                                } else {
-                                    safeLog('info', 'Approved: ' + paymentId);
+                                    finalize({ ok: false, error: ap.error, paymentId });
                                 }
                             });
                         },
-
-                        /* -------- المرحلة 4: الإكمال -------- */
                         onReadyForServerCompletion: function (paymentId, txid) {
-                            safeLog('info', 'onReadyForServerCompletion: ' + paymentId + ' txid=' + txid);
-
+                            safeLog('info', 'onReadyForServerCompletion: ' + txid);
                             completeOnServer(paymentId, txid).then(function (cp) {
                                 clearTimeout(hardTimer);
                                 if (!cp.ok) {
                                     notify('error', cp.error || 'فشل الإكمال.');
-                                    finalize({ ok: false, paymentId: paymentId, txid: txid, error: cp.error });
+                                    finalize({ ok: false, paymentId, txid, error: cp.error });
                                     return;
                                 }
                                 notify('success', 'تم إتمام الدفع بنجاح 🎉');
-                                finalize({ ok: true, paymentId: paymentId, txid: txid });
+                                finalize({ ok: true, paymentId, txid });
                             });
                         },
-
-                        /* -------- الإلغاء -------- */
                         onCancel: function (paymentId) {
-                            safeLog('warn', 'onCancel: ' + paymentId);
                             notify('info', 'تم إلغاء عملية الدفع.');
                             clearTimeout(hardTimer);
-                            finalize({ ok: false, cancelled: true, paymentId: paymentId, error: 'تم الإلغاء.' });
+                            finalize({ ok: false, cancelled: true, paymentId, error: 'تم الإلغاء.' });
                         },
-
-                        /* -------- الخطأ -------- */
                         onError: function (err, payment) {
-                            safeLog('error', 'onError:', err);
                             const msg = (err && err.message) ? String(err.message).slice(0, 200) : 'فشل الدفع.';
                             notify('error', 'فشل: ' + msg);
                             clearTimeout(hardTimer);
@@ -202,7 +159,6 @@
                     }
                 );
             } catch (err) {
-                safeLog('error', 'Pi.createPayment threw:', err);
                 clearTimeout(hardTimer);
                 notify('error', 'تعذّر فتح نافذة الدفع.');
                 finalize({ ok: false, error: 'تعذّر فتح النافذة.' });
@@ -231,7 +187,7 @@
     }
 
     window.GavPayment = Object.freeze({
-        init: function () { /* stateless */ },
+        init: function () {},
         startCheckout: startCheckout,
         reconcile: reconcile,
         isBusy: function () { return state.inFlight === true; },
