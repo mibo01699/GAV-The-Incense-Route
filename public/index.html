@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0a0e17">
     <title>GAV – The Incense Route</title>
 
-    <!-- Pi SDK الرسمي — يجب أن يُحمَّل أولاً -->
+    <!-- Pi SDK الرسمي -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
     <!-- الأنماط -->
@@ -15,9 +15,7 @@
 </head>
 <body>
 
-    <!-- ============================================
-         شاشة التحميل الأولية
-         ============================================ -->
+    <!-- شاشة التحميل -->
     <div id="splash-screen" class="splash-screen">
         <div class="splash-content">
             <div class="splash-logo">🪔</div>
@@ -28,12 +26,10 @@
         </div>
     </div>
 
-    <!-- ============================================
-         التطبيق الرئيسي
-         ============================================ -->
+    <!-- التطبيق الرئيسي -->
     <div id="app" class="app hidden">
 
-        <!-- ===== الشريط العلوي ===== -->
+        <!-- الشريط العلوي -->
         <header class="app-header">
             <div class="header-right">
                 <button id="menu-toggle" class="icon-btn" aria-label="القائمة">
@@ -51,7 +47,7 @@
             </div>
         </header>
 
-        <!-- ===== القائمة الجانبية ===== -->
+        <!-- القائمة الجانبية -->
         <aside id="sidebar" class="sidebar">
             <nav class="sidebar-nav">
                 <a href="#marketplace" class="nav-item active" data-view="marketplace">
@@ -101,10 +97,10 @@
             </nav>
         </aside>
 
-        <!-- ===== المحتوى الرئيسي ===== -->
+        <!-- المحتوى الرئيسي -->
         <main id="main-content" class="main-content">
 
-            <!-- ===== عرض السوق ===== -->
+            <!-- السوق -->
             <section id="view-marketplace" class="view active">
                 <div class="view-header">
                     <h2>🏪 السوق</h2>
@@ -115,13 +111,11 @@
                     <button id="search-btn" class="btn btn-primary">بحث</button>
                 </div>
                 <div id="products-grid" class="products-grid">
-                    <div class="empty-state">
-                        <p>لا توجد منتجات بعد. قم بتسجيل الدخول لعرض المنتجات.</p>
-                    </div>
+                    <div class="empty-state"><p>جاري التحميل...</p></div>
                 </div>
             </section>
 
-            <!-- ===== عرض لوحة التاجر ===== -->
+            <!-- لوحة التاجر -->
             <section id="view-merchant" class="view">
                 <div class="view-header">
                     <h2>🏬 لوحة التاجر</h2>
@@ -146,13 +140,11 @@
                     <button id="view-orders-btn" class="btn btn-secondary">📋 عرض الطلبات</button>
                 </div>
                 <div id="merchant-products-list" class="products-list">
-                    <div class="empty-state">
-                        <p>لم تقم بإضافة أي منتجات بعد.</p>
-                    </div>
+                    <div class="empty-state"><p>لم تقم بإضافة أي منتجات بعد.</p></div>
                 </div>
             </section>
 
-            <!-- ===== عرض نقطة البيع (POS) ===== -->
+            <!-- نقطة البيع -->
             <section id="view-pos" class="view">
                 <div class="view-header">
                     <h2>🧾 نقطة البيع</h2>
@@ -181,7 +173,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض سجل المنتجات ===== -->
+            <!-- سجل المنتجات -->
             <section id="view-registry" class="view">
                 <div class="view-header">
                     <h2>📦 سجل المنتجات</h2>
@@ -192,7 +184,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض سلسلة التوريد ===== -->
+            <!-- سلسلة التوريد -->
             <section id="view-supply-chain" class="view">
                 <div class="view-header">
                     <h2>🔗 سلسلة التوريد</h2>
@@ -203,7 +195,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض المقايضة ===== -->
+            <!-- المقايضة -->
             <section id="view-barter" class="view">
                 <div class="view-header">
                     <h2>🔄 مهرجانات المقايضة</h2>
@@ -214,7 +206,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض المدفوعات ===== -->
+            <!-- المدفوعات -->
             <section id="view-payments" class="view">
                 <div class="view-header">
                     <h2>💳 المدفوعات</h2>
@@ -225,7 +217,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض الفواتير ===== -->
+            <!-- الفواتير -->
             <section id="view-invoices" class="view">
                 <div class="view-header">
                     <h2>📄 الفواتير</h2>
@@ -236,7 +228,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض الطلبات ===== -->
+            <!-- الطلبات -->
             <section id="view-orders" class="view">
                 <div class="view-header">
                     <h2>📋 الطلبات</h2>
@@ -247,7 +239,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض سجل التدقيق ===== -->
+            <!-- سجل التدقيق -->
             <section id="view-audit" class="view">
                 <div class="view-header">
                     <h2>🔍 سجل التدقيق</h2>
@@ -258,7 +250,7 @@
                 </div>
             </section>
 
-            <!-- ===== عرض المؤشر المرجعي ===== -->
+            <!-- المؤشر المرجعي -->
             <section id="view-reference-index" class="view">
                 <div class="view-header">
                     <h2>📊 مؤشر GAV المرجعي</h2>
@@ -271,7 +263,7 @@
 
         </main>
 
-        <!-- ===== شريط التنقل السفلي (للجوال) ===== -->
+        <!-- شريط التنقل السفلي -->
         <nav class="bottom-nav">
             <button class="bottom-nav-item active" data-view="marketplace">
                 <span class="nav-icon">🏪</span>
@@ -293,9 +285,7 @@
 
     </div>
 
-    <!-- ============================================
-         طبقة تسجيل الدخول (تظهر عند الحاجة)
-         ============================================ -->
+    <!-- طبقة تسجيل الدخول -->
     <div id="auth-overlay" class="auth-overlay hidden">
         <div class="auth-modal">
             <div class="auth-logo">🪔</div>
@@ -309,16 +299,14 @@
         </div>
     </div>
 
-    <!-- ============================================
-         الإشعارات (Toast)
-         ============================================ -->
+    <!-- الإشعارات -->
     <div id="toast-container" class="toast-container"></div>
 
     <!-- ============================================
-         تحميل السكربتات — بالترتيب الصحيح
+         السكربتات — بالترتيب الصحيح
          ============================================ -->
 
-    <!-- 1. تهيئة Pi SDK (يجب أن تكون الأولى بعد SDK) -->
+    <!-- 1. تهيئة Pi SDK -->
     <script src="js/sdk/pi-config.js"></script>
 
     <!-- 2. مصادقة Pi -->
@@ -336,12 +324,13 @@
     <script src="js/modules/barter.js"></script>
     <script src="js/modules/supply-chain.js"></script>
     <script src="js/modules/pricing.js"></script>
+    <script src="js/modules/payment.js"></script>
 
     <!-- 5. واجهة المستخدم -->
     <script src="js/ui/components.js"></script>
     <script src="js/ui/notifications.js"></script>
 
-    <!-- 6. نقطة الدخول الرئيسية -->
+    <!-- 6. نقطة الدخول -->
     <script src="js/app.js"></script>
 
 </body>
