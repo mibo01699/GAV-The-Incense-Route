@@ -2,39 +2,19 @@
    GAV – The Incense Route
    Module: App Bootstrap (Entry Point)
    Path:   public/js/app.js
-
-   PURPOSE:
-     - Hide splash screen after full readiness.
-     - Initialize modules in strict order:
-         State → Router → Auth → UI → Modules.
-     - Show auth overlay when Pi is ready but user is guest.
-     - Global error handlers (window.onerror, unhandledrejection).
-     - Announce readiness via 'gav:app:ready' event.
-
-   CONSTRAINTS:
-     - No network calls here (modules handle their own).
-     - No direct Pi SDK calls here (pi-auth.js handles).
-     - No GCV, no YER, no fiat.
-     - Never breaks if a module is missing.
    ============================================================ */
 
 (function () {
     'use strict';
 
-    /* --------------------------------------------
-       Constants
-       -------------------------------------------- */
     const SPLASH_ID       = 'splash-screen';
     const SPLASH_STATUS   = 'splash-status';
     const APP_ID          = 'app';
     const AUTH_OVERLAY_ID = 'auth-overlay';
 
-    const SPLASH_MIN_MS   = 500;   // keep splash visible briefly (nice UX)
-    const SPLASH_MAX_MS   = 4000;  // hard cap
+    const SPLASH_MIN_MS   = 500;
+    const SPLASH_MAX_MS   = 4000;
 
-    /* --------------------------------------------
-       Duplicate-load guard
-       -------------------------------------------- */
     if (window.__GAV_APP_LOADED__ === true) {
         if (window.console && console.warn) {
             console.warn('[GAV/app] Module already loaded — skipping.');
@@ -43,9 +23,6 @@
     }
     window.__GAV_APP_LOADED__ = true;
 
-    /* --------------------------------------------
-       State
-       -------------------------------------------- */
     const state = {
         startedAt: Date.now(),
         ready:     false,
@@ -84,7 +61,7 @@
     }
 
     /* --------------------------------------------
-       Auth overlay visibility
+       Auth overlay
        -------------------------------------------- */
     function isPiReady() {
         return window.__GAV_PI_READY__ === true;
@@ -110,10 +87,8 @@
         const authed = hasVerifiedSession();
         if (authed) {
             overlay.classList.add('hidden');
-            safeLog('info', 'Auth overlay hidden (session verified).');
         } else {
             overlay.classList.remove('hidden');
-            safeLog('info', 'Auth overlay shown (no verified session).');
         }
     }
 
@@ -153,8 +128,6 @@
     }
 
     function initAuth() {
-        // pi-auth.js self-initializes on DOMContentLoaded.
-        // We only verify that its public API exists.
         if (!window.GavAuth) {
             safeLog('warn', 'GavAuth not available.');
             return false;
@@ -163,7 +136,6 @@
     }
 
     function initUi() {
-        // components.js and notifications.js are stateless; nothing to init.
         return !!(window.GavUI && window.GavNotify);
     }
 
@@ -175,7 +147,11 @@
             ['barter',      window.GavBarter],
             ['supplyChain', window.GavSupplyChain],
             ['pricing',     window.GavPricing],
-            ['payment',     window.GavPayment]   // loaded later; safe if missing
+            ['payment',     window.GavPayment],
+            ['orders',      window.GavOrders],
+            ['invoices',    window.GavInvoices],
+            ['payments',    window.GavPayments],
+            ['audit',       window.GavAudit]
         ];
 
         let ok = 0;
@@ -216,44 +192,33 @@
         safeLog('info', 'Boot sequence starting...');
 
         setSplashStatus('جاري تهيئة الحالة...');
-
-        // 1) State store
         if (!initState()) {
             state.bootError = 'State init failed';
             return finish(false, 'فشل تهيئة الحالة.');
         }
 
         setSplashStatus('جاري تهيئة التنقل...');
-
-        // 2) Router
         if (!initRouter()) {
             state.bootError = 'Router init failed';
             return finish(false, 'فشل تهيئة التنقل.');
         }
 
         setSplashStatus('جاري تحميل وحدات الواجهة...');
-
-        // 3) UI layer
         initUi();
 
-        // 4) Auth (self-init already happened; just verify)
         initAuth();
 
-        // 5) Business modules
         setSplashStatus('جاري تحميل وحدات التطبيق...');
         initModules();
 
-        // 6) Reveal app + sync auth overlay
         showApp();
         syncAuthOverlay();
 
-        // Wire future auth changes to overlay
         window.addEventListener('gav:auth:success', syncAuthOverlay, false);
         window.addEventListener('gav:auth:logout',  syncAuthOverlay, false);
 
         const elapsed = Date.now() - t0;
-        safeLog('info', 'Boot sequence complete in ' + elapsed + 'ms. ' +
-                        'Pi ready=' + (isPiReady() ? 'yes' : 'no'));
+        safeLog('info', 'Boot sequence complete in ' + elapsed + 'ms. Pi ready=' + (isPiReady() ? 'yes' : 'no'));
 
         finish(true, isPiReady()
             ? 'جاهز.'
@@ -261,7 +226,6 @@
     }
 
     function finish(success, statusText) {
-        // Enforce minimum splash duration for UX consistency
         const elapsed = Date.now() - state.startedAt;
         const wait = Math.max(0, Math.min(SPLASH_MIN_MS - elapsed, SPLASH_MAX_MS));
 
@@ -271,7 +235,6 @@
             hideSplash();
             state.ready = success;
 
-            // Announce readiness
             try {
                 window.dispatchEvent(new CustomEvent('gav:app:ready', {
                     detail: {
@@ -294,7 +257,6 @@
     window.GavApp = Object.freeze({
         isReady: function () { return state.ready === true; },
         reboot:  function () {
-            // Soft-reboot: re-init state + router (safe for debugging)
             safeLog('info', 'Soft reboot requested.');
             try {
                 if (window.GavState && typeof window.GavState.init === 'function') {
