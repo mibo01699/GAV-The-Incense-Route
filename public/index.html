@@ -2,367 +2,347 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GAV - The Incense Route</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="GAV – The Incense Route | سوق التبادل التجاري على شبكة Pi">
+    <meta name="theme-color" content="#0a0e17">
+    <title>GAV – The Incense Route</title>
+
+    <!-- Pi SDK الرسمي — يجب أن يُحمَّل أولاً -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+
+    <!-- الأنماط -->
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        .page { display: none !important; }
-        .page.active { display: block !important; }
-        #calculator-modal, #transactions-modal, #wallet-modal, #messages-modal { display: none; }
-        #calculator-fab, #transactions-fab { display: none; }
-    </style>
 </head>
 <body>
 
-<header class="top-bar">
-    <div class="logo">🛣️ GAV</div>
-    <div class="network-badge"><span class="dot testnet"></span> Testnet</div>
-    <div id="user-info">
-        <span id="username">زائر</span>
-        <button id="logout-btn" style="display:none;" onclick="logout()">خروج</button>
-    </div>
-</header>
-
-<nav class="bottom-nav" id="bottom-nav" style="display:none;">
-    <button class="nav-btn active" data-page="home" onclick="showPage('home')">
-        <span class="nav-icon">🏠</span><span class="nav-label">الرئيسية</span>
-    </button>
-    <button class="nav-btn" data-page="products" onclick="showPage('products')">
-        <span class="nav-icon">📦</span><span class="nav-label">المنتجات</span>
-    </button>
-    <button class="nav-btn" data-page="festivals" onclick="showPage('festivals')">
-        <span class="nav-icon">🎪</span><span class="nav-label">المهرجانات</span>
-    </button>
-    <button class="nav-btn" data-page="cart" onclick="showPage('cart')">
-        <span class="nav-icon">🛒</span><span class="nav-label">السلة</span>
-    </button>
-    <button class="nav-btn" data-page="merchant" onclick="showPage('merchant')">
-        <span class="nav-icon">🏪</span><span class="nav-label">التاجر</span>
-    </button>
-</nav>
-
-<button type="button" id="calculator-fab" class="calculator-fab" onclick="openCalculator()" title="الحاسبة الذكية">🧮</button>
-<button type="button" id="transactions-fab" class="calculator-fab" onclick="openTransactionsLog()" title="سجل المعاملات" style="bottom:160px;">🧾</button>
-
-<div id="calculator-modal" class="calculator-modal">
-    <div class="calculator-sheet">
-        <div class="calculator-header">
-            <h3>🧮 الحاسبة الذكية</h3>
-            <button type="button" class="calculator-close" onclick="closeCalculator()">✕</button>
+    <!-- ============================================
+         شاشة التحميل الأولية
+         ============================================ -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-content">
+            <div class="splash-logo">🪔</div>
+            <h1 class="splash-title">GAV</h1>
+            <p class="splash-subtitle">The Incense Route</p>
+            <div class="splash-spinner"></div>
+            <p class="splash-status" id="splash-status">جاري التهيئة...</p>
         </div>
-        <div class="calculator-body">
-            <div class="calc-field">
-                <label>💵 قيمة المنتج $</label>
-                <input type="number" id="calc-usd" placeholder="100.00" step="0.01" min="0.01">
-            </div>
+    </div>
 
-            <div class="calc-reference-info" style="background:#f0f7f3; padding:14px; border-radius:10px; border-right:4px solid #2d7a4a; margin-bottom:16px;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:1.8rem;">📈</span>
-                    <div>
-                        <strong style="color:#1a4d2e; display:block;">السعر المرجعي: Pi DEX AMM</strong>
-                        <small style="color:#7f8c8d;">يُجلب مباشرة من مجمع السيولة Pi / YER</small>
-                    </div>
+    <!-- ============================================
+         التطبيق الرئيسي
+         ============================================ -->
+    <div id="app" class="app hidden">
+
+        <!-- ===== الشريط العلوي ===== -->
+        <header class="app-header">
+            <div class="header-right">
+                <button id="menu-toggle" class="icon-btn" aria-label="القائمة">
+                    <span class="hamburger"></span>
+                </button>
+                <div class="brand">
+                    <span class="brand-icon">🪔</span>
+                    <span class="brand-name">GAV</span>
                 </div>
             </div>
-
-            <button type="button" id="calc-button" class="btn-primary" onclick="calculateConversion()" style="margin-top:8px;">⚡ احسب التوزيع</button>
-
-            <div id="calc-results" style="display:none;margin-top:16px;">
-                <div class="calc-result-card">
-                    <div class="calc-result-row">
-                        <span class="calc-result-label">💠 Pi</span>
-                        <strong id="calc-result-pi" class="calc-result-value">0</strong>
-                    </div>
-                    <div class="calc-result-row">
-                        <span class="calc-result-label">🪙 YER</span>
-                        <strong id="calc-result-yer" class="calc-result-value">0</strong>
-                    </div>
-                    <div class="calc-result-note">📈 50% Pi + 50% YER (حسب سعر AMM الحي)</div>
+            <div class="header-left">
+                <div id="user-badge" class="user-badge">
+                    <span class="user-status" id="user-status">زائر</span>
                 </div>
-                <button type="button" class="btn-secondary" onclick="applyCalculatorToProduct()" style="margin-top:12px;">📋 تطبيق على المنتج</button>
             </div>
-        </div>
-    </div>
-</div>
+        </header>
 
-<div id="transactions-modal" class="calculator-modal">
-    <div class="calculator-sheet">
-        <div class="calculator-header">
-            <h3>🧾 سجل المعاملات</h3>
-            <button type="button" class="calculator-close" onclick="closeTransactionsLog()">✕</button>
-        </div>
-        <div class="calculator-body">
-            <div id="tx-summary"></div>
+        <!-- ===== القائمة الجانبية ===== -->
+        <aside id="sidebar" class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="#marketplace" class="nav-item active" data-view="marketplace">
+                    <span class="nav-icon">🏪</span>
+                    <span class="nav-label">السوق</span>
+                </a>
+                <a href="#merchant" class="nav-item" data-view="merchant">
+                    <span class="nav-icon">🏬</span>
+                    <span class="nav-label">لوحة التاجر</span>
+                </a>
+                <a href="#pos" class="nav-item" data-view="pos">
+                    <span class="nav-icon">🧾</span>
+                    <span class="nav-label">نقطة البيع</span>
+                </a>
+                <a href="#registry" class="nav-item" data-view="registry">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-label">سجل المنتجات</span>
+                </a>
+                <a href="#supply-chain" class="nav-item" data-view="supply-chain">
+                    <span class="nav-icon">🔗</span>
+                    <span class="nav-label">سلسلة التوريد</span>
+                </a>
+                <a href="#barter" class="nav-item" data-view="barter">
+                    <span class="nav-icon">🔄</span>
+                    <span class="nav-label">مهرجانات المقايضة</span>
+                </a>
+                <a href="#payments" class="nav-item" data-view="payments">
+                    <span class="nav-icon">💳</span>
+                    <span class="nav-label">المدفوعات</span>
+                </a>
+                <a href="#invoices" class="nav-item" data-view="invoices">
+                    <span class="nav-icon">📄</span>
+                    <span class="nav-label">الفواتير</span>
+                </a>
+                <a href="#orders" class="nav-item" data-view="orders">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">الطلبات</span>
+                </a>
+                <a href="#audit" class="nav-item" data-view="audit">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">سجل التدقيق</span>
+                </a>
+                <a href="#reference-index" class="nav-item" data-view="reference-index">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">مؤشر GAV المرجعي</span>
+                </a>
+            </nav>
+        </aside>
 
-            <div class="filter-buttons" style="margin-top:16px;">
-                <button type="button" class="filter-btn tx-filter-btn active" data-filter="all" onclick="filterTransactions('all')">الكل</button>
-                <button type="button" class="filter-btn tx-filter-btn" data-filter="PRODUCT_SALE" onclick="filterTransactions('PRODUCT_SALE')">🛒 المنتجات</button>
-                <button type="button" class="filter-btn tx-filter-btn" data-filter="FESTIVAL_EXCHANGE" onclick="filterTransactions('FESTIVAL_EXCHANGE')">🎪 المهرجانات</button>
-            </div>
+        <!-- ===== المحتوى الرئيسي ===== -->
+        <main id="main-content" class="main-content">
 
-            <div id="tx-list" style="margin-top:12px;">
-                <p class="empty-state">جارٍ التحميل...</p>
-            </div>
-        </div>
-    </div>
-</div>
+            <!-- ===== عرض السوق ===== -->
+            <section id="view-marketplace" class="view active">
+                <div class="view-header">
+                    <h2>🏪 السوق</h2>
+                    <p class="view-desc">تصفح المنتجات المعروضة على شبكة Pi</p>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="marketplace-search" placeholder="ابحث عن منتج..." class="input-field">
+                    <button id="search-btn" class="btn btn-primary">بحث</button>
+                </div>
+                <div id="products-grid" class="products-grid">
+                    <div class="empty-state">
+                        <p>لا توجد منتجات بعد. قم بتسجيل الدخول لعرض المنتجات.</p>
+                    </div>
+                </div>
+            </section>
 
-<div id="wallet-modal" class="calculator-modal">
-    <div class="calculator-sheet">
-        <div class="calculator-header">
-            <h3>💳 اختر محفظة الدفع</h3>
-            <button type="button" class="calculator-close" onclick="closeWalletModal()">✕</button>
-        </div>
-        <div class="calculator-body">
-            <p style="text-align:center; color:#7f8c8d; margin-bottom:16px;">لديك خياران لإتمام الدفع</p>
+            <!-- ===== عرض لوحة التاجر ===== -->
+            <section id="view-merchant" class="view">
+                <div class="view-header">
+                    <h2>🏬 لوحة التاجر</h2>
+                    <p class="view-desc">إدارة متجرك ومنتجاتك</p>
+                </div>
+                <div class="merchant-dashboard">
+                    <div class="stat-card">
+                        <span class="stat-label">المنتجات النشطة</span>
+                        <span class="stat-value" id="merchant-products-count">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">الطلبات المعلقة</span>
+                        <span class="stat-value" id="merchant-orders-count">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">إجمالي المبيعات (Pi)</span>
+                        <span class="stat-value" id="merchant-sales-total">0.00</span>
+                    </div>
+                </div>
+                <div class="merchant-actions">
+                    <button id="add-product-btn" class="btn btn-primary">➕ إضافة منتج</button>
+                    <button id="view-orders-btn" class="btn btn-secondary">📋 عرض الطلبات</button>
+                </div>
+                <div id="merchant-products-list" class="products-list">
+                    <div class="empty-state">
+                        <p>لم تقم بإضافة أي منتجات بعد.</p>
+                    </div>
+                </div>
+            </section>
 
-            <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('bigish')">
-                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
-                    <div style="display:flex; align-items:center; gap:10px; width:100%;">
-                        <span style="font-size:1.8rem;">🦅</span>
-                        <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة BIGISH-YER</strong>
-                            <small style="color:#7f8c8d;">دفع هجين (Pi + YER) — رصيد داخلي</small>
-                            <div style="margin-top:8px; font-size:0.8rem; color:#2d7a4a;">
-                                رصيدك: <span id="wallet-bigish-balance">—</span>
+            <!-- ===== عرض نقطة البيع (POS) ===== -->
+            <section id="view-pos" class="view">
+                <div class="view-header">
+                    <h2>🧾 نقطة البيع</h2>
+                    <p class="view-desc">إنشاء فاتورة ودفع فوري عبر Pi</p>
+                </div>
+                <div class="pos-layout">
+                    <div class="pos-products">
+                        <h3>المنتجات</h3>
+                        <div id="pos-products-grid" class="pos-grid">
+                            <div class="empty-state"><p>لا توجد منتجات.</p></div>
+                        </div>
+                    </div>
+                    <div class="pos-cart">
+                        <h3>السلة</h3>
+                        <div id="pos-cart-items" class="cart-items">
+                            <div class="empty-state"><p>السلة فارغة.</p></div>
+                        </div>
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>المجموع:</span>
+                                <span id="pos-total">0.00 Pi</span>
                             </div>
+                            <button id="pos-checkout-btn" class="btn btn-primary btn-block">💳 الدفع عبر Pi</button>
                         </div>
                     </div>
                 </div>
-            </label>
+            </section>
 
-            <label class="calc-option" style="display:block; margin-bottom:12px;" onclick="selectWallet('pi-browser')">
-                <div class="calc-option-content" style="align-items:flex-start; text-align:right; padding:16px;">
-                    <div style="display:flex; align-items:center; gap:10px; width:100%;">
-                        <span style="font-size:1.8rem;">π</span>
-                        <div style="flex:1;">
-                            <strong style="color:#1a4d2e; display:block; font-size:1rem;">محفظة Pi Browser الرسمية</strong>
-                            <small style="color:#7f8c8d;">دفع مباشر من محفظتك الرسمية على Pi</small>
-                            <div style="margin-top:8px; font-size:0.8rem; color:#7f8c8d;">
-                                المبلغ: <span id="wallet-pi-amount">—</span>
-                            </div>
-                        </div>
-                    </div>
+            <!-- ===== عرض سجل المنتجات ===== -->
+            <section id="view-registry" class="view">
+                <div class="view-header">
+                    <h2>📦 سجل المنتجات</h2>
+                    <p class="view-desc">سجل موحد لجميع المنتجات المسجلة على الشبكة</p>
                 </div>
-            </label>
+                <div id="registry-list" class="registry-list">
+                    <div class="empty-state"><p>لا توجد منتجات مسجلة.</p></div>
+                </div>
+            </section>
 
-            <div id="wallet-total-info" style="background:#f0f7f3; padding:12px; border-radius:8px; border-right:3px solid #d4af37; margin-top:12px; text-align:center;">
-                <small style="color:#7f8c8d;">الإجمالي المطلوب:</small>
-                <div id="wallet-total" style="font-weight:700; color:#1a4d2e; font-size:1.1rem; margin-top:4px;">—</div>
-            </div>
+            <!-- ===== عرض سلسلة التوريد ===== -->
+            <section id="view-supply-chain" class="view">
+                <div class="view-header">
+                    <h2>🔗 سلسلة التوريد</h2>
+                    <p class="view-desc">تتبع المنتجات من المصدر إلى المستهلك</p>
+                </div>
+                <div id="supply-chain-list" class="supply-chain-list">
+                    <div class="empty-state"><p>لا توجد سجلات تتبع.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض المقايضة ===== -->
+            <section id="view-barter" class="view">
+                <div class="view-header">
+                    <h2>🔄 مهرجانات المقايضة</h2>
+                    <p class="view-desc">تبادل البضائع بدون وسيط نقدي</p>
+                </div>
+                <div id="barter-events" class="barter-events">
+                    <div class="empty-state"><p>لا توجد فعاليات مقايضة حالياً.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض المدفوعات ===== -->
+            <section id="view-payments" class="view">
+                <div class="view-header">
+                    <h2>💳 المدفوعات</h2>
+                    <p class="view-desc">سجل معاملات Pi — يتم التحقق منها من جانب الخادم</p>
+                </div>
+                <div id="payments-list" class="payments-list">
+                    <div class="empty-state"><p>لا توجد معاملات.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض الفواتير ===== -->
+            <section id="view-invoices" class="view">
+                <div class="view-header">
+                    <h2>📄 الفواتير</h2>
+                    <p class="view-desc">الفواتير الصادرة والواردة</p>
+                </div>
+                <div id="invoices-list" class="invoices-list">
+                    <div class="empty-state"><p>لا توجد فواتير.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض الطلبات ===== -->
+            <section id="view-orders" class="view">
+                <div class="view-header">
+                    <h2>📋 الطلبات</h2>
+                    <p class="view-desc">تتبع طلباتك ومبيعاتك</p>
+                </div>
+                <div id="orders-list" class="orders-list">
+                    <div class="empty-state"><p>لا توجد طلبات.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض سجل التدقيق ===== -->
+            <section id="view-audit" class="view">
+                <div class="view-header">
+                    <h2>🔍 سجل التدقيق</h2>
+                    <p class="view-desc">سجل كامل لجميع العمليات الحساسة</p>
+                </div>
+                <div id="audit-list" class="audit-list">
+                    <div class="empty-state"><p>لا توجد سجلات.</p></div>
+                </div>
+            </section>
+
+            <!-- ===== عرض المؤشر المرجعي ===== -->
+            <section id="view-reference-index" class="view">
+                <div class="view-header">
+                    <h2>📊 مؤشر GAV المرجعي</h2>
+                    <p class="view-desc">مؤشر أسعار مرجعي داخل النظام — ليس بديلاً عن سعر السوق</p>
+                </div>
+                <div id="reference-index-table" class="reference-index-table">
+                    <div class="empty-state"><p>لا توجد بيانات.</p></div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ===== شريط التنقل السفلي (للجوال) ===== -->
+        <nav class="bottom-nav">
+            <button class="bottom-nav-item active" data-view="marketplace">
+                <span class="nav-icon">🏪</span>
+                <span class="nav-label">السوق</span>
+            </button>
+            <button class="bottom-nav-item" data-view="pos">
+                <span class="nav-icon">🧾</span>
+                <span class="nav-label">نقطة البيع</span>
+            </button>
+            <button class="bottom-nav-item" data-view="barter">
+                <span class="nav-icon">🔄</span>
+                <span class="nav-label">المقايضة</span>
+            </button>
+            <button class="bottom-nav-item" data-view="orders">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">الطلبات</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- ============================================
+         طبقة تسجيل الدخول (تظهر عند الحاجة)
+         ============================================ -->
+    <div id="auth-overlay" class="auth-overlay hidden">
+        <div class="auth-modal">
+            <div class="auth-logo">🪔</div>
+            <h2>مرحباً بك في GAV</h2>
+            <p class="auth-desc">سجّل الدخول باستخدام حساب Pi الخاص بك</p>
+            <button id="login-pi-btn" class="btn btn-pi btn-block" onclick="loginWithPi()">
+                🚀 تسجيل الدخول بحساب Pi
+            </button>
+            <p class="auth-hint">يتم التحقق من هويتك من جانب الخادم عبر Pi Network API</p>
+            <p id="auth-error" class="auth-error hidden"></p>
         </div>
     </div>
-</div>
 
-<div id="messages-modal" class="calculator-modal">
-    <div class="calculator-sheet">
-        <div class="calculator-header">
-            <h3 id="messages-title">💬 المراسلات</h3>
-            <button type="button" class="calculator-close" onclick="closeMessages()">✕</button>
-        </div>
-        <div class="calculator-body">
-            <div id="messages-list" style="max-height:50vh; overflow-y:auto; margin-bottom:12px;">
-                <p class="empty-state">لا توجد رسائل بعد.</p>
-            </div>
-            <textarea id="message-input" placeholder="اكتب رسالتك..." style="min-height:60px;"></textarea>
-            <button type="button" class="btn-primary" onclick="sendMessage()" style="margin-top:8px;">📤 إرسال</button>
-        </div>
-    </div>
-</div>
-<main class="container">
+    <!-- ============================================
+         الإشعارات (Toast)
+         ============================================ -->
+    <div id="toast-container" class="toast-container"></div>
 
-    <section id="page-login" class="page active">
-        <div class="card">
-            <h1>🛣️ GAV - طريق البخور</h1>
-            <p class="subtitle">منصة التجارة العابرة للحدود</p>
-            <p class="description">تبادل السلع التراثية والبخور والعطور عبر منظومة Arabian Eagle</p>
-            <button type="button" id="login-btn" class="btn-primary" onclick="loginWithPi()">🚀 تسجيل الدخول بحساب Pi</button>
-            <div id="login-error" class="error" style="display:none;"></div>
-            <div class="status-note"><small>⚠️ التطبيق في مرحلة التطوير — Testnet فقط</small></div>
-        </div>
-    </section>
+    <!-- ============================================
+         تحميل السكربتات — بالترتيب الصحيح
+         ============================================ -->
 
-    <section id="page-home" class="page">
-        <div class="card user-card">
-            <h2>مرحباً، <span id="user-name"></span></h2>
-            <p class="user-id">معرف Pi: <span id="user-id"></span></p>
-        </div>
-        <div class="card">
-            <h3>💰 محفظتك</h3>
-            <div class="balance-grid">
-                <div class="balance-item">
-                    <span class="label">Pi</span>
-                    <span class="value" id="pi-balance">0.00</span>
-                </div>
-                <div class="balance-item">
-                    <span class="label">YER</span>
-                    <span class="value" id="yer-balance">0.00</span>
-                </div>
-            </div>
-            <p class="subtitle" style="margin-top:12px; text-align:center;"><small>الدفع يتم عبر محفظة BIGISH-YER</small></p>
-        </div>
-        <div class="card">
-            <h3>🌿 تصفح الأقسام</h3>
-            <div id="categories-grid" class="categories-grid"></div>
-        </div>
-        <div class="card">
-            <h3>🔥 أحدث المنتجات</h3>
-            <div id="featured-products" class="products-grid"></div>
-        </div>
-    </section>
+    <!-- 1. تهيئة Pi SDK (يجب أن تكون الأولى بعد SDK) -->
+    <script src="js/sdk/pi-config.js"></script>
 
-    <section id="page-products" class="page">
-        <div class="card">
-            <h3>📦 جميع المنتجات</h3>
-            <input type="text" id="search-input" placeholder="ابحث عن منتج..." oninput="filterProducts()">
-            <div id="filter-buttons" class="filter-buttons"></div>
-            <div id="products-list" class="products-grid"></div>
-        </div>
-    </section>
+    <!-- 2. مصادقة Pi -->
+    <script src="js/sdk/pi-auth.js"></script>
 
-    <section id="page-festivals" class="page">
-        <div class="card">
-            <h3>🎪 مهرجانات المقايضة</h3>
-            <p class="subtitle">تبادل البضائع مقابل Pi بحرية كاملة (عبر محفظة Pi Browser)</p>
-            <button type="button" class="btn-primary" onclick="openCreateFestival()" style="margin-top:8px;">➕ إنشاء مهرجان جديد</button>
-            <button type="button" class="btn-secondary" onclick="loadFestivalLog()" style="margin-top:8px;">📊 سجل المهرجانات</button>
-        </div>
-        <div class="card">
-            <h3>🎯 المهرجانات النشطة</h3>
-            <div id="festivals-list"><p class="empty-state">لا توجد مهرجانات حالياً.</p></div>
-            <button type="button" class="btn-secondary" onclick="loadFestivals()" style="margin-top:12px;">🔄 تحديث</button>
-        </div>
-        <div class="card" id="festival-log-card" style="display:none;">
-            <h3>📊 سجل المهرجانات</h3>
-            <div id="festival-log-content"></div>
-        </div>
-        <div class="card">
-            <h3>📋 مهرجاناتي</h3>
-            <div id="my-festivals-list"><p class="empty-state">لم تنشئ أي مهرجان بعد.</p></div>
-        </div>
-    </section>
+    <!-- 3. النواة -->
+    <script src="js/core/router.js"></script>
+    <script src="js/core/api.js"></script>
+    <script src="js/core/state.js"></script>
 
-    <section id="page-cart" class="page">
-        <div class="card">
-            <h3>🛒 سلة التسوق</h3>
-            <div id="cart-items"><p class="empty-state">السلة فارغة حالياً.</p></div>
-            <div id="cart-summary" style="display:none;">
-                <div class="cart-total">
-                    <span>الإجمالي:</span>
-                    <strong id="cart-total-amount">0</strong>
-                </div>
-                <button type="button" class="btn-primary" onclick="openWalletModal()" style="margin-top:12px;">💳 إتمام الدفع</button>
-            </div>
-        </div>
-    </section>
+    <!-- 4. الوحدات -->
+    <script src="js/modules/marketplace.js"></script>
+    <script src="js/modules/merchant.js"></script>
+    <script src="js/modules/pos.js"></script>
+    <script src="js/modules/barter.js"></script>
+    <script src="js/modules/supply-chain.js"></script>
+    <script src="js/modules/pricing.js"></script>
 
-    <section id="page-orders" class="page">
-        <div class="card">
-            <h3>📋 طلباتي</h3>
-            <div id="orders-list"><p class="empty-state">لا توجد طلبات بعد.</p></div>
-            <button type="button" class="btn-secondary" onclick="refreshOrders()" style="margin-top:12px;">🔄 تحديث</button>
-        </div>
-    </section>
+    <!-- 5. واجهة المستخدم -->
+    <script src="js/ui/components.js"></script>
+    <script src="js/ui/notifications.js"></script>
 
-    <section id="page-merchant" class="page">
-        <div class="card">
-            <h3>🏪 لوحة التاجر</h3>
-            <div id="merchant-stats" class="stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">المنتجات</span>
-                    <span class="stat-value" id="stat-products">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">الطلبات</span>
-                    <span class="stat-value" id="stat-orders">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Pi مكتسب</span>
-                    <span class="stat-value" id="stat-pi">0.00</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">YER مكتسب</span>
-                    <span class="stat-value" id="stat-yer">0.00</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>➕ إضافة منتج جديد</h3>
-            <input type="text" id="new-product-name" placeholder="اسم المنتج">
-            <input type="text" id="new-product-type" placeholder="النوع / الفئة الفرعية" style="margin-top:8px;">
-            <input type="number" id="new-product-quantity" placeholder="الكمية" step="1" style="margin-top:8px;">
-            <input type="number" id="new-product-stock" placeholder="المخزون" step="1" style="margin-top:8px;">
-            <input type="text" id="new-product-direct-address" placeholder="📍 عنوان البيع المباشر" style="margin-top:8px;">
-            <textarea id="new-product-description" placeholder="وصف إضافي (اختياري)" style="margin-top:8px;"></textarea>
-
-            <select id="new-product-category" style="margin-top:8px;">
-                <option value="incense">البخور والعطور</option>
-                <option value="luban">البان</option>
-                <option value="dates">التمور</option>
-                <option value="textiles">المنسوجات</option>
-                <option value="handicrafts">الحرف اليدوية</option>
-                <option value="food">المواد الغذائية</option>
-                <option value="vegetables">الخضروات والفواكه</option>
-                <option value="meat">اللحوم</option>
-                <option value="fish">الأسماك</option>
-                <option value="beverages">المشروبات</option>
-                <option value="coffee">البن والقهوة</option>
-                <option value="honey">العسل الطبيعي</option>
-                <option value="spices">التوابل</option>
-                <option value="gold">الذهب والمجوهرات</option>
-                <option value="silver">الفضيات</option>
-                <option value="clothing">الملابس</option>
-                <option value="accessories">الإكسسوارات</option>
-                <option value="cosmetics">أدوات التجميل</option>
-                <option value="electronics">الأجهزة الإلكترونية</option>
-                <option value="smartphones">الهواتف الذكية</option>
-                <option value="hardware">الخردوات والأدوات</option>
-                <option value="home">مستلزمات المنزل</option>
-                <option value="agriculture">المستلزمات الزراعية</option>
-                <option value="medicines">الأدوية</option>
-                <option value="supplements">المكملات الغذائية</option>
-                <option value="sanitary">الأدوات الصحية</option>
-                <option value="constructionTools">أدوات البناء</option>
-                <option value="constructionMaterials">مواد البناء</option>
-                <option value="electricalTools">أدوات الكهرباء</option>
-                <option value="plumbingTools">أدوات السباكة</option>
-                <option value="tiles">البلاط</option>
-                <option value="ceramics">السيراميك</option>
-                <option value="vehicles">المركبات</option>
-                <option value="others">أخرى</option>
-            </select>
-
-            <input type="number" id="new-product-price-usd" placeholder="قيمة المنتج $" step="0.01" style="margin-top:8px;">
-            <input type="number" id="new-product-price-pi" placeholder="السعر بـ Pi (تلقائي)" step="0.0000000001" style="margin-top:8px;" readonly>
-            <input type="number" id="new-product-price-yer" placeholder="السعر بـ YER (تلقائي)" step="0.01" style="margin-top:8px;" readonly>
-
-            <input type="hidden" id="new-product-reference-source">
-            <input type="hidden" id="new-product-pi-ratio">
-
-            <button type="button" class="btn-primary" onclick="addProduct()" style="margin-top:12px;">➕ إضافة المنتج</button>
-        </div>
-
-        <div class="card">
-            <h3>📦 منتجاتي</h3>
-            <div id="my-products-list"><p class="empty-state">لا توجد منتجات بعد.</p></div>
-        </div>
-    </section>
-
-</main>
-
-<script src="js/pi-config.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/products.js"></script>
-<script src="js/cart.js"></script>
-<script src="js/payment.js"></script>
-<script src="js/orders.js"></script>
-<script src="js/merchant.js"></script>
-<script src="js/converter.js"></script>
-<script src="js/festivals.js"></script>
-<script src="js/transactions.js"></script>
+    <!-- 6. نقطة الدخول الرئيسية -->
+    <script src="js/app.js"></script>
 
 </body>
 </html>
