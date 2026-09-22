@@ -1,39 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/auth/verify.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/v1/index.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/auth/verify",
-      "dest": "/api/auth/verify.js"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/v1/index.js"
-    },
-    {
-      "src": "/css/(.*)",
-      "dest": "/public/css/$1"
-    },
-    {
-      "src": "/js/(.*)",
-      "dest": "/public/js/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
+  "rewrites": [
+    { "source": "/api/v1/products", "destination": "/api/v1/products" },
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/auth/verify", "destination": "/api/auth/verify" },
+    { "source": "/api/v1/(.*)", "destination": "/api/v1/$1" },
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
