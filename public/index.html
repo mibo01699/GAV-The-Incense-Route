@@ -1,179 +1,111 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>GAV - The Incense Route | Pi Network</title>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a;
-      color: #fff;
-      min-height: 100vh;
-      direction: rtl;
+<script>
+  // Pi SDK Initialization — Testnet (sandbox: true)
+  async function initPi() {
+    if (typeof Pi === 'undefined') {
+      throw new Error('Pi SDK not loaded. Open this app inside Pi Browser.');
     }
-    #app { padding: 20px; max-width: 600px; margin: 0 auto; }
-    .header { text-align: center; padding: 30px 0; }
-    .header h1 { font-size: 1.5rem; color: #f0b90b; margin-bottom: 8px; }
-    .header p { color: #888; font-size: 0.9rem; }
-    .btn {
-      background: #f0b90b; color: #000; border: none;
-      padding: 14px 28px; border-radius: 12px;
-      font-size: 1rem; font-weight: 600; cursor: pointer;
-      width: 100%; margin: 10px 0;
-    }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-outline {
-      background: transparent; border: 2px solid #f0b90b; color: #f0b90b;
-    }
-    .card {
-      background: #1a1a1a; border-radius: 16px;
-      padding: 20px; margin: 16px 0; border: 1px solid #333;
-    }
-    .card h3 { color: #f0b90b; margin-bottom: 12px; font-size: 1.1rem; }
-    .user-info { display: flex; align-items: center; gap: 12px; }
-    .avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: #f0b90b; display: flex;
-      align-items: center; justify-content: center; font-size: 1.5rem;
-    }
-    .loading { text-align: center; padding: 60px 20px; color: #888; }
-    .spinner {
-      width: 40px; height: 40px; border: 3px solid #333;
-      border-top-color: #f0b90b; border-radius: 50%;
-      animation: spin 1s linear infinite; margin: 0 auto 20px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error { color: #ff4444; text-align: center; padding: 20px; }
-    .hidden { display: none !important; }
-    .footer-nav {
-      display: flex; justify-content: space-around;
-      padding: 16px 0; border-top: 1px solid #333;
-      margin-top: 30px; position: sticky;
-      bottom: 0; background: #0a0a0a;
-    }
-    .footer-nav span { color: #666; font-size: 0.8rem; cursor: pointer; }
-    .footer-nav span.active { color: #f0b90b; }
-  </style>
-</head>
-<body>
-  <div id="app">
-    <div id="loading" class="loading">
-      <div class="spinner"></div>
-      <p>جاري التحقق من شبكة Pi...</p>
-    </div>
-    <div id="error" class="error hidden"></div>
-    <div id="main" class="hidden">
-      <div class="header">
-        <h1>🦅 GAV - طريق اللبان</h1>
-        <p>منصة مقايضة اجتماعية على شبكة Pi</p>
-      </div>
-      <div class="card">
-        <div class="user-info">
-          <div class="avatar">😀</div>
-          <div>
-            <strong id="username">-</strong>
-            <div style="color:#888;font-size:0.8rem" id="uid">-</div>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>📊 رصيد YER المستحق</h3>
-        <p style="font-size:2rem;color:#f0b90b" id="yer-balance">0</p>
-        <p style="color:#888;font-size:0.8rem">يُحدَّث وفق نتائج تصويت الحوكمة</p>
-      </div>
-      <button class="btn" id="btn-create-offer">🤝 إنشاء عرض مقايضة فردية</button>
-      <button class="btn btn-outline" id="btn-festivals">🎪 مهرجانات المقايضة القريبة</button>
-      <button class="btn btn-outline" id="btn-vote">🗳️ لوحة التصويت والحوكمة</button>
-      <div class="footer-nav">
-        <span class="active">🏠 الرئيسية</span>
-        <span>👤 الملف</span>
-        <span>🗺️ الخريطة</span>
-        <span>💰 المحفظة</span>
-      </div>
-    </div>
-  </div>
+    await Pi.init({ version: '2.0', sandbox: true });
+  }
 
-  <script>
-    // Pi SDK Initialization — Mainnet (sandbox: false)
-    // Pi-only auth. No email/password. No external redirects.
-
-    async function initPi() {
-      if (typeof Pi === 'undefined') {
-        throw new Error('Pi SDK not loaded. Open this app inside Pi Browser.');
-      }
-      await Pi.init({ version: '2.0', sandbox: false });
-    }
-
-    async function authenticatePi() {
-      const scopes = ['username', 'payments'];
-      function onIncompletePaymentFound(payment) {
-        console.warn('Incomplete payment detected:', payment.identifier);
-        fetch('/api/payment/incomplete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payment })
-        }).catch(() => {});
-      }
-      return await Pi.authenticate(scopes, onIncompletePaymentFound);
-    }
-
-    async function verifyOnBackend(accessToken) {
-      const res = await fetch('/api/auth/verify', {
+  async function authenticatePi() {
+    const scopes = ['username', 'payments'];
+    function onIncompletePaymentFound(payment) {
+      console.warn('Incomplete payment detected:', payment.identifier);
+      fetch('/api/payment/incomplete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'فشل التحقق من الهوية');
-      }
-      return res.json();
+        body: JSON.stringify({ payment })
+      }).catch(() => {});
     }
+    return await Pi.authenticate(scopes, onIncompletePaymentFound);
+  }
 
-    function showError(msg) {
-      document.getElementById('loading').classList.add('hidden');
-      document.getElementById('main').classList.add('hidden');
-      const el = document.getElementById('error');
-      el.classList.remove('hidden');
-      el.textContent = msg;
-    }
-
-    function showMain(verified) {
-      document.getElementById('loading').classList.add('hidden');
-      document.getElementById('error').classList.add('hidden');
-      document.getElementById('main').classList.remove('hidden');
-      document.getElementById('username').textContent = verified.username || 'مستخدم Pi';
-      document.getElementById('uid').textContent =
-        verified.uid ? 'UID: ' + verified.uid.slice(0, 12) + '...' : '';
-      document.getElementById('yer-balance').textContent = verified.yerBalance || '0';
-    }
-
-    async function bootstrap() {
-      try {
-        await initPi();
-        const auth = await authenticatePi();
-        const verified = await verifyOnBackend(auth.accessToken);
-        showMain(verified);
-      } catch (err) {
-        console.error(err);
-        showError(err.message || 'حدث خطأ. تأكد من فتح التطبيق داخل Pi Browser.');
-      }
-    }
-
-    document.getElementById('btn-create-offer')?.addEventListener('click', () => {
-      alert('محرك المقايضة الفردية — قيد الإنشاء');
+  async function verifyOnBackend(accessToken) {
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken })
     });
-    document.getElementById('btn-festivals')?.addEventListener('click', () => {
-      alert('محرك المهرجانات الجغرافية — قيد الإنشاء');
-    });
-    document.getElementById('btn-vote')?.addEventListener('click', () => {
-      alert('محرك التصويت والحوكمة — قيد الإنشاء');
-    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'فشل التحقق من الهوية');
+    }
+    return res.json();
+  }
 
-    bootstrap();
-  </script>
-</body>
-</html>
+  function showError(msg) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('main').classList.add('hidden');
+    const el = document.getElementById('error');
+    el.classList.remove('hidden');
+    el.textContent = msg;
+  }
+
+  function showMain(verified) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('error').classList.add('hidden');
+    document.getElementById('main').classList.remove('hidden');
+    document.getElementById('username').textContent = verified.username || 'مستخدم Pi';
+    document.getElementById('uid').textContent =
+      verified.uid ? 'UID: ' + verified.uid.slice(0, 12) + '...' : '';
+    document.getElementById('yer-balance').textContent = verified.yerBalance || '0';
+  }
+
+  // حفظ accessToken للاستخدام في الصفحات الأخرى
+  function saveSession(token, user) {
+    try {
+      sessionStorage.setItem('pi_access_token', token);
+      sessionStorage.setItem('pi_uid', user.uid);
+      sessionStorage.setItem('pi_username', user.username || '');
+    } catch (e) { console.warn('sessionStorage unavailable'); }
+  }
+
+  function getSessionToken() {
+    try { return sessionStorage.getItem('pi_access_token'); } catch (e) { return null; }
+  }
+
+  async function bootstrap() {
+    try {
+      await initPi();
+      const auth = await authenticatePi();
+      const verified = await verifyOnBackend(auth.accessToken);
+      saveSession(auth.accessToken, verified);
+      showMain(verified);
+    } catch (err) {
+      console.error(err);
+      showError(err.message || 'حدث خطأ. تأكد من فتح التطبيق داخل Pi Browser.');
+    }
+  }
+
+  // ============================================================
+  // Navigation — الأزرار الآن تنتقل إلى صفحات فعلية
+  // ============================================================
+  function navigate(page) {
+    const token = getSessionToken();
+    if (!token) {
+      alert('يرجى تسجيل الدخول أولاً');
+      return;
+    }
+    window.location.href = '/' + page;
+  }
+
+  document.getElementById('btn-create-offer')?.addEventListener('click', () => {
+    navigate('create-offer.html');
+  });
+  document.getElementById('btn-festivals')?.addEventListener('click', () => {
+    navigate('festivals.html');
+  });
+  document.getElementById('btn-vote')?.addEventListener('click', () => {
+    navigate('voting.html');
+  });
+
+  // Footer navigation
+  document.querySelectorAll('.footer-nav span').forEach((el, idx) => {
+    el.addEventListener('click', () => {
+      const pages = ['index.html', 'profile.html', 'map.html', 'wallet.html'];
+      if (pages[idx]) navigate(pages[idx]);
+    });
+  });
+
+  bootstrap();
+</script>
