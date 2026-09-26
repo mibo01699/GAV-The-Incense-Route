@@ -1,7 +1,6 @@
 {
   "name": "gav-the-incense-route",
   "version": "1.0.0",
-  "description": "GAV - The Incense Route | Social barter festival on Pi Network Mainnet",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
@@ -9,8 +8,5 @@
   },
   "scripts": {
     "test": "echo \"no tests\" && exit 0"
-  },
-  "dependencies": {
-    "@vercel/speed-insights": "^2.0.0"
   }
 }
