@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إنشاء عرض مقايضة | GAV</title>
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a; color: #fff;
+      min-height: 100vh; direction: rtl;
+    }
+    #app { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .header { display: flex; align-items: center; padding: 16px 0; gap: 12px; }
+    .back {
+      color: #f0b90b; font-size: 1.5rem; text-decoration: none;
+      cursor: pointer; background: none; border: none;
+    }
+    h1 { color: #f0b90b; font-size: 1.3rem; }
+    .field { margin: 16px 0; }
+    label { display: block; margin-bottom: 6px; color: #ccc; font-size: 0.9rem; }
+    input, textarea, select {
+      width: 100%; padding: 12px; background: #1a1a1a;
+      border: 1px solid #333; border-radius: 8px;
+      color: #fff; font-size: 1rem; font-family: inherit;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none; border-color: #f0b90b;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .btn {
+      background: #f0b90b; color: #000; border: none;
+      padding: 14px 28px; border-radius: 12px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      width: 100%; margin-top: 20px;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent; border: 2px solid #f0b90b;
+      color: #f0b90b; margin-top: 10px;
+    }
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+    .hint { color: #888; font-size: 0.8rem; margin-top: 4px; }
+    .success {
+      background: #1a3a1a; border: 1px solid #4caf50;
+      color: #4caf50; padding: 16px; border-radius: 12px;
+      margin-top: 20px; text-align: center;
+    }
+    .error-box {
+      background: #3a1a1a; border: 1px solid #ff4444;
+      color: #ff4444; padding: 12px; border-radius: 8px;
+      margin: 12px 0;
+    }
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid #333;
+      border-top-color: #f0b90b; border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: inline-block; vertical-align: middle; margin-left: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <button class="back" onclick="goBack()">→</button>
+      <h1>🤝 إنشاء عرض مقايضة فردية</h1>
+    </div>
+
+    <div id="error-box" class="error-box" style="display:none"></div>
+
+    <form id="offer-form" onsubmit="submitOffer(event)">
+      <div class="field">
+        <label for="title">عنوان المنتج *</label>
+        <input type="text" id="title" required maxlength="80"
+               placeholder="مثال: 10 كيلو قهوة يمنية">
+      </div>
+
+      <div class="field">
+        <label for="description">وصف المنتج *</label>
+        <textarea id="description" required maxlength="500"
+                  placeholder="الجودة، المصدر، تاريخ الحصاد..."></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="price">السعر بـ Pi *</label>
+          <input type="number" id="price" required min="0.001"
+                 step="0.001" placeholder="1.5">
+          <div class="hint">≥ 0.001 Pi</div>
+        </div>
+        <div class="field">
+          <label for="stock">الكمية *</label>
+          <input type="number" id="stock" required min="1" step="1" placeholder="10">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="unit">وحدة التجزئة *</label>
+          <select id="unit" required>
+            <option value="kg">كيلوغرام</option>
+            <option value="g">غرام</option>
+            <option value="piece">قطعة</option>
+            <option value="box">صندوق</option>
+            <option value="liter">لتر</option>
+            <option value="bundle">حزمة</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="weight">الوزن (غرام)</label>
+          <input type="number" id="weight" min="0" step="1" placeholder="1000">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="image">رابط صورة المنتج *</label>
+        <input type="url" id="image" required
+               placeholder="https://example.com/product.jpg">
+        <div class="hint">⚠️ صورة حقيقية 100% — يُمنع صور الذكاء الاصطناعي</div>
+      </div>
+
+      <div class="field">
+        <label>
+          <input type="checkbox" id="gps-consent" required>
+          أوافق على استخدام GPS لتحديد موقعي التقريبي
+        </label>
+      </div>
+
+      <button type="submit" class="btn" id="submit-btn">
+        نشر العرض
+      </button>
+    </form>
+
+    <div id="success" class="success" style="display:none">
+      ✅ تم نشر العرض بنجاح
+    </div>
+  </div>
+
+  <script>
+    // Pi SDK — Testnet
+    let currentUser = null;
+    let currentToken = null;
+
+    async function initPi() {
+      if (typeof Pi === 'undefined') {
+        throw new Error('Pi SDK not loaded.');
+      }
+      await Pi.init({ version: '2.0', sandbox: true });
+    }
+
+    function getSession() {
+      try {
+        return {
+          token: sessionStorage.getItem('pi_access_token'),
+          uid: sessionStorage.getItem('pi_uid'),
+          username: sessionStorage.getItem('pi_username')
+        };
+      } catch (e) { return {}; }
+    }
+
+    async function ensureAuth() {
+      const s = getSession();
+      if (!s.token) {
+        // إعادة المصادقة
+        const auth = await Pi.authenticate(['username', 'payments']);
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: auth.accessToken })
+        });
+        if (!res.ok) throw new Error('فشل التحقق');
+        const data = await res.json();
+        sessionStorage.setItem('pi_access_token', auth.accessToken);
+        sessionStorage.setItem('pi_uid', data.uid);
+        sessionStorage.setItem('pi_username', data.username || '');
+        currentToken = auth.accessToken;
+        currentUser = data;
+      } else {
+        currentToken = s.token;
+        currentUser = { uid: s.uid, username: s.username };
+      }
+    }
+
+    function goBack() {
+      window.location.href = '/';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-box');
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    async function getGPS() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          return reject(new Error('GPS غير مدعوم'));
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          }),
+          err => reject(new Error('تم رفض الوصول إلى GPS')),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
+
+    async function submitOffer(e) {
+      e.preventDefault();
+      document.getElementById('error-box').style.display = 'none';
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = 'جارٍ النشر... <span class="spinner"></span>';
+
+      try {
+        await ensureAuth();
+
+        const gps = await getGPS();
+
+        const offer = {
+          title: document.getElementById('title').value.trim(),
+          description: document.getElementById('description').value.trim(),
+          pricePi: parseFloat(document.getElementById('price').value),
+          stock: parseInt(document.getElementById('stock').value, 10),
+          unit: document.getElementById('unit').value,
+          weightGrams: parseInt(document.getElementById('weight').value, 10) || null,
+          imageUrl: document.getElementById('image').value.trim(),
+          gps: gps,
+          createdAt: new Date().toISOString()
+        };
+
+        // إرسال إلى الخادم
+        const res = await fetch('/api/offers/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + currentToken
+          },
+          body: JSON.stringify(offer)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'فشل نشر العرض');
+        }
+
+        // نجاح
+        document.getElementById('offer-form').style.display = 'none';
+        document.getElementById('success').style.display = 'block';
+
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+
+      } catch (err) {
+        console.error(err);
+        showError(err.message || 'حدث خطأ غير متوقع');
+        btn.disabled = false;
+        btn.textContent = 'نشر العرض';
+      }
+    }
+
+    // تهيئة
+    initPi().then(ensureAuth).catch(err => {
+      showError(err.message);
+    });
+  </script>
+</body>
+</html>
