@@ -184,3 +184,8 @@ const balance = 0.1 + 0.2;  // 0.30000000000000004
 
 // ✅ CORRECT (BigInt)
 const balance = 10000000000n + 20000000000n;  // 30000000000n exactly
+```
+
+---
+
+© 2026 Arabian Eagle A.E.C
