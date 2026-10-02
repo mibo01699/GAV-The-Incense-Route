@@ -1,7 +1,6 @@
 // POST /api/offers/create
 // Header: Authorization: Bearer <pi_access_token>
 // Body: { title, description, pricePi, stock, unit, weightGrams, imageDataUrl, gps }
-// TASK 06b: temporary in-memory store (replaced by Supabase in TASK 07).
 
 const globalStore = globalThis.__GAV_OFFERS__ || (globalThis.__GAV_OFFERS__ = []);
 const MAX_IMAGE_DATA_URL_LEN = 1500000;
