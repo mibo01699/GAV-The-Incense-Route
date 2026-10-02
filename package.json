@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "description": "GAV - The Incense Route | Social barter festival on Pi Network (Testnet)",
   "private": true,
+  "type": "module",
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": "24.x"
   },
   "scripts": {
     "dev": "vercel dev",
-    "test": "node tests/smoke.js"
+    "test": "node --test tests/"
   },
   "dependencies": {
     "@vercel/speed-insights": "^2.0.0"
