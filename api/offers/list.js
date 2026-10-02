@@ -1,11 +1,10 @@
 // GET /api/offers/list
 // Header: Authorization: Bearer <pi_access_token>
 //
-// TASK 06: temporary in-memory store for Testnet smoke testing.
-// TASK 07 (Supabase) will replace this with a real repository.
-// Do NOT rely on this persisting across cold starts.
+// TASK 06b: temporary in-memory store.
 
-const globalStore = globalThis.__GAV_OFFERS__ || (globalThis.__GAV_OFFERS__ = []);
+const globalStore =
+  globalThis.__GAV_OFFERS__ || (globalThis.__GAV_OFFERS__ = []);
 
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -49,10 +48,16 @@ export default async function handler(req, res) {
     });
   }
 
+  // Return newest first, cap at 50
+  const offers = globalStore
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 50);
+
   return res.status(200).json({
     ok: true,
-    offers: globalStore,
-    count: globalStore.length,
+    offers,
+    count: offers.length,
     storage: 'in_memory_temporary'
   });
 }
