@@ -3,145 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>إنشاء عرض مقايضة | GAV</title>
+  <title>GAV - The Incense Route | Pi Network</title>
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <script src="/js/image-upload.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; direction: rtl; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      min-height: 100vh;
+      direction: rtl;
+    }
     #app { padding: 20px; max-width: 600px; margin: 0 auto; }
-    .header { display: flex; align-items: center; padding: 16px 0; gap: 12px; }
-    .back { color: #f0b90b; font-size: 1.5rem; text-decoration: none; cursor: pointer; background: none; border: none; }
-    h1 { color: #f0b90b; font-size: 1.3rem; }
-    .field { margin: 16px 0; }
-    label { display: block; margin-bottom: 6px; color: #ccc; font-size: 0.9rem; }
-    input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1rem; font-family: inherit; }
-    input:focus, textarea:focus, select:focus { outline: none; border-color: #f0b90b; }
-    textarea { resize: vertical; min-height: 80px; }
-    input[type="file"] { width: 100%; padding: 12px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 0.9rem; font-family: inherit; cursor: pointer; }
-    input[type="file"]::file-selector-button { background: #f0b90b; color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-left: 12px; }
-    .btn { background: #f0b90b; color: #000; border: none; padding: 14px 28px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 20px; }
+    .header { text-align: center; padding: 30px 0; }
+    .header h1 { font-size: 1.5rem; color: #f0b90b; margin-bottom: 8px; }
+    .header p { color: #888; font-size: 0.9rem; }
+    .btn {
+      background: #f0b90b; color: #000; border: none;
+      padding: 14px 28px; border-radius: 12px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      width: 100%; margin: 10px 0;
+    }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-outline { background: transparent; border: 2px solid #f0b90b; color: #f0b90b; margin-top: 10px; }
-    .row { display: flex; gap: 12px; }
-    .row > * { flex: 1; }
-    .hint { color: #888; font-size: 0.8rem; margin-top: 4px; line-height: 1.6; }
-    .success { background: #1a3a1a; border: 1px solid #4caf50; color: #4caf50; padding: 16px; border-radius: 12px; margin-top: 20px; text-align: center; }
-    .error-box { background: #3a1a1a; border: 1px solid #ff4444; color: #ff4444; padding: 12px; border-radius: 8px; margin: 12px 0; }
-    .spinner { width: 20px; height: 20px; border: 2px solid #333; border-top-color: #f0b90b; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-left: 8px; }
+    .btn-outline {
+      background: transparent; border: 2px solid #f0b90b; color: #f0b90b;
+    }
+    .card {
+      background: #1a1a1a; border-radius: 16px;
+      padding: 20px; margin: 16px 0; border: 1px solid #333;
+    }
+    .card h3 { color: #f0b90b; margin-bottom: 12px; font-size: 1.1rem; }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #f0b90b; display: flex;
+      align-items: center; justify-content: center; font-size: 1.5rem;
+    }
+    .loading { text-align: center; padding: 60px 20px; color: #888; }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid #333;
+      border-top-color: #f0b90b; border-radius: 50%;
+      animation: spin 1s linear infinite; margin: 0 auto 20px;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .card { background: #1a1a1a; border-radius: 16px; padding: 20px; margin: 16px 0; border: 1px solid #333; }
-    .offer-item { background: #151515; border: 1px solid #333; border-radius: 12px; padding: 16px; margin: 12px 0; }
-    .offer-item h4 { color: #f0b90b; margin-bottom: 8px; font-size: 1.05rem; }
-    .offer-item .desc { color: #999; font-size: 0.9rem; margin-bottom: 10px; }
-    .offer-item .price { font-size: 1.3rem; color: #f0b90b; margin: 8px 0; font-weight: 700; }
-    .offer-item .meta { color: #888; font-size: 0.8rem; margin-bottom: 12px; }
-    .offer-item img { width: 100%; max-height: 240px; object-fit: cover; border-radius: 8px; margin-bottom: 12px; border: 1px solid #222; }
-    .image-preview { margin-top: 12px; text-align: center; }
-    .image-preview img { max-width: 100%; max-height: 320px; border-radius: 8px; border: 1px solid #333; }
-    .image-status { font-size: 0.8rem; margin-top: 10px; color: #888; padding: 8px; border-radius: 6px; background: #151515; line-height: 1.6; }
-    .image-status.ok { color: #4caf50; border: 1px solid #2a5a2a; }
-    .image-status.err { color: #ff4444; border: 1px solid #5a2a2a; }
-    .image-status.working { color: #f0b90b; }
-    .nav-hint { text-align: center; color: #666; font-size: 0.75rem; margin-top: 30px; padding-top: 20px; border-top: 1px solid #222; }
-    .empty-state { text-align: center; padding: 30px 20px; color: #888; }
+    .error { color: #ff4444; text-align: center; padding: 20px; }
+    .hidden { display: none !important; }
+    .footer-nav {
+      display: flex; justify-content: space-around;
+      padding: 16px 0; border-top: 1px solid #333;
+      margin-top: 30px;
+    }
+    .footer-nav span { color: #666; font-size: 0.8rem; cursor: pointer; }
+    .footer-nav span.active { color: #f0b90b; }
+    .logout-btn {
+      background: transparent;
+      border: 1px solid #444;
+      color: #888;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 12px;
+      font-size: 0.8rem;
+      width: 100%;
+    }
+    .logout-btn:hover { border-color: #f0b90b; color: #f0b90b; }
   </style>
 </head>
 <body>
   <div id="app">
-    <div class="header">
-      <button class="back" onclick="goBack()">→</button>
-      <h1>🤝 عروض المقايضة</h1>
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>جاري التحقق من شبكة Pi...</p>
+      <p style="font-size:0.8rem;color:#555;margin-top:12px">
+        إذا لم تظهر الصفحة خلال 12 ثانية، تأكد من فتح التطبيق داخل Pi Browser.
+      </p>
     </div>
-    <div id="error-box" class="error-box" style="display:none"></div>
-
-    <div id="list-view">
-      <button class="btn" onclick="showCreateForm()">+ إنشاء عرض جديد</button>
-      <div id="offers-list"></div>
-      <div class="nav-hint">GAV • Testnet • Pi-only</div>
-    </div>
-
-    <div id="create-view" style="display:none">
-      <button class="btn btn-outline" onclick="hideCreateForm()">← رجوع للعروض</button>
-      <form id="offer-form" onsubmit="submitOffer(event)">
-        <div class="field">
-          <label for="title">عنوان المنتج *</label>
-          <input type="text" id="title" required maxlength="80" placeholder="مثال: 10 كيلو قهوة يمنية">
-          <div class="hint">حتى 80 حرفًا</div>
-        </div>
-        <div class="field">
-          <label for="description">وصف المنتج *</label>
-          <textarea id="description" required maxlength="500" placeholder="الجودة، المصدر، تاريخ الحصاد..."></textarea>
-          <div class="hint">حتى 500 حرف</div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label for="price">السعر بـ Pi *</label>
-            <input type="number" id="price" required min="0.001" step="0.001" placeholder="1.5">
-            <div class="hint">≥ 0.001 Pi</div>
-          </div>
-          <div class="field">
-            <label for="stock">الكمية *</label>
-            <input type="number" id="stock" required min="1" step="1" placeholder="10">
+    <div id="error" class="error hidden"></div>
+    <div id="main" class="hidden">
+      <div class="header">
+        <h1>🦅 GAV - طريق اللبان</h1>
+        <p>منصة مقايضة اجتماعية على شبكة Pi</p>
+      </div>
+      <div class="card">
+        <div class="user-info">
+          <div class="avatar">😀</div>
+          <div>
+            <strong id="username">-</strong>
+            <div style="color:#888;font-size:0.8rem" id="uid">-</div>
           </div>
         </div>
-        <div class="row">
-          <div class="field">
-            <label for="unit">وحدة التجزئة *</label>
-            <select id="unit" required>
-              <option value="kg">كيلوغرام</option>
-              <option value="g">غرام</option>
-              <option value="piece">قطعة</option>
-              <option value="box">صندوق</option>
-              <option value="liter">لتر</option>
-              <option value="bundle">حزمة</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="weight">الوزن (غرام)</label>
-            <input type="number" id="weight" min="0" step="1" placeholder="1000">
-            <div class="hint">اختياري</div>
-          </div>
-        </div>
-        <div class="field">
-          <label for="image-file">صورة المنتج *</label>
-          <input type="file" id="image-file" accept="image/png,image/jpeg" required onchange="handleImageSelect(event)">
-          <div class="hint">
-            ⚠️ شروط الصورة:
-            <br>• الأبعاد الدنيا: 750 × 1500 بكسل
-            <br>• الصيغة: PNG أو JPG/JPEG فقط
-            <br>• الحجم الأقصى: 1 ميغابايت (يُضغط تلقائيًا)
-            <br>• صورة حقيقية 100%
-          </div>
-          <div id="image-preview" class="image-preview" style="display:none">
-            <img id="preview-img" alt="معاينة">
-            <div id="image-status" class="image-status"></div>
-          </div>
-        </div>
-        <div class="field">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-            <input type="checkbox" id="gps-consent" required style="width:auto;margin:0">
-            <span>أوافق على استخدام GPS لتحديد موقعي التقريبي</span>
-          </label>
-        </div>
-        <button type="submit" class="btn" id="submit-btn">نشر العرض</button>
-      </form>
-      <div id="success" class="success" style="display:none">✅ تم نشر العرض بنجاح</div>
-    </div>
-
-    <div id="payment-view" style="display:none">
-      <h2 style="color:#f0b90b;margin-bottom:16px">إتمام الدفع بـ Pi</h2>
-      <div class="card" id="payment-summary"></div>
-      <button class="btn" id="pay-btn" onclick="startPayment()">💰 ادفع بـ Pi</button>
-      <button class="btn btn-outline" onclick="hidePayment()">إلغاء</button>
-      <div id="payment-status" style="margin-top:16px;color:#888;text-align:center;line-height:1.6"></div>
+        <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
+      </div>
+      <div class="card">
+        <h3>📊 رصيد YER المستحق</h3>
+        <p style="font-size:2rem;color:#f0b90b" id="yer-balance">0</p>
+        <p style="color:#888;font-size:0.8rem">يُحدَّث وفق نتائج تصويت الحوكمة</p>
+      </div>
+      <button class="btn" id="btn-create-offer">🤝 إنشاء عرض مقايضة فردية</button>
+      <button class="btn btn-outline" id="btn-festivals">🎪 مهرجانات المقايضة القريبة</button>
+      <button class="btn btn-outline" id="btn-vote">🗳️ لوحة التصويت والحوكمة</button>
+      <div class="footer-nav">
+        <span class="active">🏠 الرئيسية</span>
+        <span>👤 الملف</span>
+        <span>🗺️ الخريطة</span>
+        <span>💰 المحفظة</span>
+      </div>
     </div>
   </div>
 
   <script>
+    const BOOT_TIMEOUT_MS = 12000;
+
+    let bootTimer = null;
+    let currentAccessToken = null;
     let currentUser = null;
-    let currentToken = null;
-    let pendingPaymentOffer = null;
+    const pendingIncomplete = [];
+
+    function armFailsafe() {
+      if (bootTimer) clearTimeout(bootTimer);
+      bootTimer = setTimeout(function () {
+        if (typeof Pi === 'undefined') {
+          showError('Pi SDK لم يتم تحميله. افتح التطبيق داخل Pi Browser.');
+          return;
+        }
+        showError(
+          'انتهت مهلة التحقق. تأكد من فتح التطبيق داخل Pi Browser وأن الشبكة متاحة.'
+        );
+      }, BOOT_TIMEOUT_MS);
+    }
+
+    function disarmFailsafe() {
+      if (bootTimer) {
+        clearTimeout(bootTimer);
+        bootTimer = null;
+      }
+    }
 
     function getSession() {
       try {
@@ -150,7 +146,9 @@
           uid: sessionStorage.getItem('pi_uid'),
           username: sessionStorage.getItem('pi_username')
         };
-      } catch (e) { return {}; }
+      } catch (e) {
+        return {};
+      }
     }
 
     function saveSession(token, user) {
@@ -158,297 +156,22 @@
         sessionStorage.setItem('pi_access_token', token);
         sessionStorage.setItem('pi_uid', user.uid);
         sessionStorage.setItem('pi_username', user.username || '');
-      } catch (e) { console.warn('sessionStorage unavailable'); }
-    }
-
-    function goBack() { window.location.href = '/'; }
-
-    function showError(msg) {
-      const el = document.getElementById('error-box');
-      el.style.display = 'block';
-      el.textContent = msg;
-      setTimeout(function () { el.style.display = 'none'; }, 7000);
-    }
-
-    function showCreateForm() {
-      document.getElementById('list-view').style.display = 'none';
-      document.getElementById('create-view').style.display = 'block';
-      const form = document.getElementById('offer-form');
-      if (form) form.reset();
-      window.GAVImage.reset();
-      document.getElementById('image-preview').style.display = 'none';
-      document.getElementById('success').style.display = 'none';
-      form.style.display = 'block';
-    }
-
-    function hideCreateForm() {
-      document.getElementById('create-view').style.display = 'none';
-      document.getElementById('list-view').style.display = 'block';
-      loadOffers();
-    }
-
-    function hidePayment() {
-      document.getElementById('payment-view').style.display = 'none';
-      document.getElementById('list-view').style.display = 'block';
-      pendingPaymentOffer = null;
-    }
-
-    function escapeHtml(s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    async function handleImageSelect(event) {
-      const file = event.target.files && event.target.files[0];
-      const preview = document.getElementById('image-preview');
-      const status = document.getElementById('image-status');
-      const previewImg = document.getElementById('preview-img');
-      if (!file) { preview.style.display = 'none'; return; }
-      const result = await window.GAVImage.handleFile(file, {
-        preview: preview, status: status, previewImg: previewImg
-      });
-      if (!result) event.target.value = '';
-    }
-
-    async function initPi() {
-      if (typeof Pi === 'undefined') {
-        throw new Error('Pi SDK not loaded. Open this app inside Pi Browser.');
+      } catch (e) {
+        console.warn('sessionStorage unavailable');
       }
-      await Pi.init({ version: '2.0', sandbox: true });
     }
 
-    async function ensureAuth() {
-      const s = getSession();
-      if (s.token) {
-        currentToken = s.token;
-        currentUser = { uid: s.uid, username: s.username };
-        return;
-      }
-      const auth = await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
-      const res = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: auth.accessToken })
-      });
-      const data = await res.json().catch(function () { return {}; });
-      if (!res.ok) throw new Error(data.message || 'فشل التحقق من الهوية');
-      currentToken = auth.accessToken;
-      currentUser = data;
-      saveSession(currentToken, data);
-    }
-
-    async function getGPS() {
-      return new Promise(function (resolve, reject) {
-        if (!navigator.geolocation) {
-          return reject(new Error('GPS غير مدعوم على هذا الجهاز'));
-        }
-        var settled = false;
-        var watchdog = setTimeout(function () {
-          if (settled) return;
-          settled = true;
-          reject(new Error('انتهت مهلة GPS (8 ثوان). تأكد من تفعيل الموقع في النظام.'));
-        }, 8000);
-        function finishOk(pos) {
-          if (settled) return;
-          settled = true;
-          clearTimeout(watchdog);
-          resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        }
-        function finishErr(msg) {
-          if (settled) return;
-          settled = true;
-          clearTimeout(watchdog);
-          reject(new Error(msg));
-        }
-        try {
-          navigator.geolocation.getCurrentPosition(
-            finishOk,
-            function (err) {
-              var msg = 'تم رفض الوصول إلى GPS';
-              if (err && err.code === 1) msg = 'يجب السماح بالوصول للموقع';
-              else if (err && err.code === 2) msg = 'GPS غير متاح';
-              else if (err && err.code === 3) msg = 'انتهت مهلة GPS';
-              finishErr(msg);
-            },
-            { enableHighAccuracy: false, timeout: 6000, maximumAge: 120000 }
-          );
-        } catch (e) {
-          finishErr('فشل تشغيل GPS');
-        }
-      });
-    }
-    async function loadOffers() {
-      const container = document.getElementById('offers-list');
-      container.innerHTML = '<div class="empty-state">جاري التحميل...</div>';
+    function clearSession() {
       try {
-        const res = await fetch('/api/offers/list', {
-          headers: { 'Authorization': 'Bearer ' + currentToken }
-        });
-        const data = await res.json().catch(function () { return {}; });
-        if (!res.ok || !data.offers || data.offers.length === 0) {
-          container.innerHTML = '<div class="empty-state">لا توجد عروض بعد. أنشئ أول عرض!</div>';
-          return;
-        }
-        container.innerHTML = data.offers.map(function (o) {
-          const imgHtml = o.imageDataUrl
-            ? '<img src="' + o.imageDataUrl + '" alt="' + escapeHtml(o.title) + '">'
-            : '';
-          return (
-            '<div class="offer-item">' +
-              '<h4>' + escapeHtml(o.title) + '</h4>' +
-              '<p class="desc">' + escapeHtml(o.description || '') + '</p>' +
-              imgHtml +
-              '<div class="price">' + o.pricePi + ' π / ' + escapeHtml(o.unit) + '</div>' +
-              '<p class="meta">متاح: ' + o.stock + ' • بواسطة ' + escapeHtml(o.username || 'مستخدم') + '</p>' +
-              '<button class="btn" onclick="openPayment(\'' + o.id + '\',\'' +
-                escapeHtml(o.title).replace(/'/g, "\\'") + '\',' + o.pricePi + ')">💰 دفع ' +
-                o.pricePi + ' Pi</button>' +
-            '</div>'
-          );
-        }).join('');
-      } catch (err) {
-        console.error('[GAV] loadOffers error:', err);
-        container.innerHTML = '<div class="empty-state" style="color:#ff4444">فشل تحميل العروض</div>';
-      }
+        sessionStorage.removeItem('pi_access_token');
+        sessionStorage.removeItem('pi_uid');
+        sessionStorage.removeItem('pi_username');
+      } catch (e) {}
     }
 
-    async function submitOffer(e) {
-      e.preventDefault();
-      document.getElementById('error-box').style.display = 'none';
-
-      const imageDataUrl = window.GAVImage.getCurrentDataUrl();
-      if (!imageDataUrl) { showError('الرجاء اختيار صورة المنتج أولاً'); return; }
-
-      const gpsConsent = document.getElementById('gps-consent');
-      if (gpsConsent && !gpsConsent.checked) { showError('يجب الموافقة على استخدام GPS'); return; }
-
-      const btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.innerHTML = 'جارٍ النشر... <span class="spinner"></span>';
-
+    async function processIncompletePayment(payment, token) {
       try {
-        await ensureAuth();
-        const gps = await getGPS();
-
-        const offer = {
-          title: document.getElementById('title').value.trim(),
-          description: document.getElementById('description').value.trim(),
-          pricePi: parseFloat(document.getElementById('price').value),
-          stock: parseInt(document.getElementById('stock').value, 10),
-          unit: document.getElementById('unit').value,
-          weightGrams: parseInt(document.getElementById('weight').value, 10) || null,
-          imageDataUrl: imageDataUrl,
-          gps: gps
-        };
-
-        const res = await fetch('/api/offers/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + currentToken
-          },
-          body: JSON.stringify(offer)
-        });
-        const data = await res.json().catch(function () { return {}; });
-        if (!res.ok) throw new Error(data.message || 'فشل نشر العرض');
-
-        document.getElementById('offer-form').style.display = 'none';
-        document.getElementById('success').style.display = 'block';
-        setTimeout(function () {
-          window.GAVImage.reset();
-          hideCreateForm();
-        }, 1500);
-      } catch (err) {
-        console.error('[GAV] submitOffer error:', err);
-        showError(err.message || 'حدث خطأ غير متوقع');
-        btn.disabled = false;
-        btn.textContent = 'نشر العرض';
-      }
-    }
-
-    function openPayment(offerId, title, pricePi) {
-      pendingPaymentOffer = { id: offerId, title: title, pricePi: pricePi };
-      document.getElementById('list-view').style.display = 'none';
-      document.getElementById('create-view').style.display = 'none';
-      document.getElementById('payment-view').style.display = 'block';
-      document.getElementById('payment-summary').innerHTML =
-        '<h3 style="color:#f0b90b">' + escapeHtml(title) + '</h3>' +
-        '<p style="font-size:1.6rem;color:#f0b90b;margin-top:8px;font-weight:700">' +
-        pricePi + ' π</p>' +
-        '<p style="color:#888;font-size:0.8rem;margin-top:8px">شبكة Pi التجريبية (Testnet)</p>';
-      document.getElementById('payment-status').textContent = '';
-      document.getElementById('pay-btn').disabled = false;
-      document.getElementById('pay-btn').textContent = '💰 ادفع بـ Pi';
-    }
-
-    async function startPayment() {
-      const btn = document.getElementById('pay-btn');
-      const status = document.getElementById('payment-status');
-      if (!pendingPaymentOffer) return;
-      btn.disabled = true;
-      btn.innerHTML = 'جارٍ إنشاء الدفعة... <span class="spinner"></span>';
-      status.textContent = '';
-      try {
-        await ensureAuth();
-        await Pi.createPayment({
-          amount: pendingPaymentOffer.pricePi,
-          memo: ('مقايضة: ' + pendingPaymentOffer.title).slice(0, 100),
-          metadata: {
-            offerId: pendingPaymentOffer.id,
-            sellerUid: currentUser ? currentUser.uid : null
-          }
-        }, {
-          onReadyForServerApproval: async function (paymentId) {
-            status.textContent = 'بانتظار موافقة الخادم...';
-            const res = await fetch('/api/payment/approve', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ paymentId: paymentId })
-            });
-            const data = await res.json().catch(function () { return {}; });
-            if (!res.ok) throw new Error(data.message || 'فشلت الموافقة');
-            status.textContent = 'تمت الموافقة. أكمل التوقيع في محفظة Pi.';
-          },
-          onReadyForServerCompletion: async function (paymentId, txid) {
-            status.textContent = 'جارٍ إكمال الدفعة...';
-            const res = await fetch('/api/payment/complete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ paymentId: paymentId, txid: txid })
-            });
-            const data = await res.json().catch(function () { return {}; });
-            if (!res.ok) throw new Error(data.message || 'فشل إكمال الدفعة');
-            status.innerHTML = '<span style="color:#4caf50;font-size:1.1rem">✅ تم الدفع بنجاح</span>';
-            setTimeout(function () { hidePayment(); }, 2000);
-          },
-          onCancel: function () {
-            status.innerHTML = '<span style="color:#ff9800">تم إلغاء الدفعة.</span>';
-            btn.disabled = false;
-            btn.textContent = '💰 ادفع بـ Pi';
-          },
-          onError: function (error, payment) {
-            console.error('[GAV] Payment error:', error, payment);
-            status.innerHTML = '<span style="color:#ff4444">حدث خطأ في الدفع.</span>';
-            btn.disabled = false;
-            btn.textContent = '💰 ادفع بـ Pi';
-          }
-        });
-      } catch (err) {
-        console.error('[GAV] startPayment error:', err);
-        status.innerHTML = '<span style="color:#ff4444">' +
-          escapeHtml(err.message || 'فشل بدء الدفع') + '</span>';
-        btn.disabled = false;
-        btn.textContent = '💰 ادفع بـ Pi';
-      }
-    }
-
-    async function onIncompletePaymentFound(payment) {
-      console.warn('[GAV] Incomplete payment:', payment && payment.identifier);
-      const token = currentToken || getSession().token;
-      if (!token) return;
-      try {
-        await fetch('/api/payment/incomplete', {
+        const res = await fetch('/api/payment/incomplete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -456,24 +179,156 @@
             accessToken: token
           })
         });
+        const data = await res.json().catch(function () { return {}; });
+        console.log('[GAV] Incomplete payment resolved:', data);
+        return data;
       } catch (err) {
-        console.warn('[GAV] incomplete recovery failed:', err);
+        console.warn('[GAV] Failed to process incomplete payment:', err);
+        return null;
       }
     }
 
-    (async function () {
+    function onIncompletePaymentFound(payment) {
+      console.warn(
+        '[GAV] Incomplete payment found:',
+        payment && payment.identifier
+      );
+      if (currentAccessToken) {
+        processIncompletePayment(payment, currentAccessToken);
+      } else {
+        pendingIncomplete.push(payment);
+      }
+    }
+
+    async function verifyOnBackend(accessToken) {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: accessToken })
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        throw new Error(data.message || 'فشل التحقق من الهوية');
+      }
+      return data;
+    }
+
+    function showError(msg) {
+      disarmFailsafe();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('main').classList.add('hidden');
+      const el = document.getElementById('error');
+      el.classList.remove('hidden');
+      el.innerHTML =
+        '<div>' + msg + '</div>' +
+        '<button onclick="location.reload()" ' +
+        'style="background:#f0b90b;color:#000;border:none;padding:10px 20px;' +
+        'border-radius:8px;cursor:pointer;margin-top:16px">إعادة المحاولة</button>';
+    }
+
+    function showMain(verified) {
+      disarmFailsafe();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error').classList.add('hidden');
+      document.getElementById('main').classList.remove('hidden');
+      document.getElementById('username').textContent =
+        verified.username || 'مستخدم Pi';
+      document.getElementById('uid').textContent = verified.uid
+        ? 'UID: ' + verified.uid.slice(0, 12) + '...'
+        : '';
+      document.getElementById('yer-balance').textContent =
+        verified.yerBalance || '0';
+    }
+
+    async function bootstrap() {
+      armFailsafe();
+
       try {
-        await initPi();
-        await ensureAuth();
-        loadOffers();
+        if (typeof Pi === 'undefined') {
+          throw new Error(
+            'Pi SDK لم يتم تحميله. افتح التطبيق داخل Pi Browser.'
+          );
+        }
+
+        await Pi.init({ version: '2.0', sandbox: true });
+
+        const auth = await Pi.authenticate(
+          ['username', 'payments'],
+          onIncompletePaymentFound
+        );
+
+        if (!auth || !auth.accessToken) {
+          throw new Error('لم يتم استلام accessToken من Pi.');
+        }
+
+        currentAccessToken = auth.accessToken;
+
+        while (pendingIncomplete.length) {
+          const p = pendingIncomplete.shift();
+          await processIncompletePayment(p, currentAccessToken);
+        }
+
+        const verified = await verifyOnBackend(currentAccessToken);
+        currentUser = verified;
+        saveSession(currentAccessToken, verified);
+        showMain(verified);
       } catch (err) {
         console.error('[GAV] bootstrap error:', err);
-        showError(err.message || 'فشل تحميل التطبيق');
-        const container = document.getElementById('offers-list');
-        container.innerHTML = '<div class="empty-state" style="color:#ff4444">' +
-          escapeHtml(err.message || 'فشل تحميل التطبيق') + '</div>';
+        showError(
+          (err && err.message) ||
+            'حدث خطأ. تأكد من فتح التطبيق داخل Pi Browser.'
+        );
       }
-    })();
+    }
+
+    function navigate(page) {
+      const token = getSession().token;
+      if (!token) {
+        alert('يرجى تسجيل الدخول أولاً');
+        return;
+      }
+      window.location.href = '/' + page;
+    }
+
+    function logout() {
+      clearSession();
+      currentAccessToken = null;
+      currentUser = null;
+      window.location.reload();
+    }
+
+    window.logout = logout;
+
+    const btnCreate = document.getElementById('btn-create-offer');
+    if (btnCreate) {
+      btnCreate.addEventListener('click', function () {
+        navigate('create-offer.html');
+      });
+    }
+
+    const btnFestivals = document.getElementById('btn-festivals');
+    if (btnFestivals) {
+      btnFestivals.addEventListener('click', function () {
+        navigate('festivals.html');
+      });
+    }
+
+    const btnVote = document.getElementById('btn-vote');
+    if (btnVote) {
+      btnVote.addEventListener('click', function () {
+        navigate('voting.html');
+      });
+    }
+
+    const footerSpans = document.querySelectorAll('.footer-nav span');
+    footerSpans.forEach(function (el, idx) {
+      el.addEventListener('click', function () {
+        const pages = ['index.html', 'profile.html', 'map.html', 'wallet.html'];
+        if (pages[idx]) navigate(pages[idx]);
+      });
+    });
+
+    bootstrap();
   </script>
 </body>
 </html>
