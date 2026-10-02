@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Smoke test
+        run: npm test
+
+      - name: Verify required files
+        run: |
+          echo "=== Required files check ==="
+          test -f public/index.html       && echo "OK  public/index.html"
+          test -f public/validation-key.txt && echo "OK  public/validation-key.txt"
+          test -f api/auth/verify.js      && echo "OK  api/auth/verify.js"
+          test -f api/payment/approve.js  && echo "OK  api/payment/approve.js"
+          test -f api/payment/complete.js && echo "OK  api/payment/complete.js"
+          echo "=== All checks passed ==="
