@@ -75,7 +75,7 @@
       <div class="spinner"></div>
       <p>جاري التحقق من شبكة Pi...</p>
       <p style="font-size:0.8rem;color:#555;margin-top:12px">
-        إذا لم تظهر الصفحة خلال 10 ثوانٍ، تأكد من فتح التطبيق داخل Pi Browser.
+        إذا لم تظهر الصفحة خلال 12 ثانية، تأكد من فتح التطبيق داخل Pi Browser.
       </p>
     </div>
     <div id="error" class="error hidden"></div>
@@ -117,15 +117,32 @@
     // sandbox: true | Pi-only auth | Server-side verification
     // ============================================================
 
-    const failsafeTimer = setTimeout(() => {
-      if (typeof Pi === 'undefined') {
-        showError('Pi SDK لم يتم تحميله. افتح التطبيق داخل Pi Browser.');
-      }
-    }, 8000);
+    const BOOT_TIMEOUT_MS = 12000;
 
+    let bootTimer = null;
     let currentAccessToken = null;
     let currentUser = null;
     const pendingIncomplete = [];
+
+    function armFailsafe() {
+      if (bootTimer) clearTimeout(bootTimer);
+      bootTimer = setTimeout(function () {
+        if (typeof Pi === 'undefined') {
+          showError('Pi SDK لم يتم تحميله. افتح التطبيق داخل Pi Browser.');
+          return;
+        }
+        showError(
+          'انتهت مهلة التحقق. تأكد من فتح التطبيق داخل Pi Browser وأن الشبكة متاحة.'
+        );
+      }, BOOT_TIMEOUT_MS);
+    }
+
+    function disarmFailsafe() {
+      if (bootTimer) {
+        clearTimeout(bootTimer);
+        bootTimer = null;
+      }
+    }
 
     function getSession() {
       try {
@@ -134,7 +151,7 @@
           uid: sessionStorage.getItem('pi_uid'),
           username: sessionStorage.getItem('pi_username')
         };
-      } catch {
+      } catch (e) {
         return {};
       }
     }
@@ -154,7 +171,7 @@
         sessionStorage.removeItem('pi_access_token');
         sessionStorage.removeItem('pi_uid');
         sessionStorage.removeItem('pi_username');
-      } catch {}
+      } catch (e) {}
     }
 
     async function processIncompletePayment(payment, token) {
@@ -167,7 +184,7 @@
             accessToken: token
           })
         });
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(function () { return {}; });
         console.log('[GAV] Incomplete payment resolved:', data);
         return data;
       } catch (err) {
@@ -192,9 +209,9 @@
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken })
+        body: JSON.stringify({ accessToken: accessToken })
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
         throw new Error(data.message || 'فشل التحقق من الهوية');
       }
@@ -202,22 +219,20 @@
     }
 
     function showError(msg) {
-      clearTimeout(failsafeTimer);
+      disarmFailsafe();
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('main').classList.add('hidden');
       const el = document.getElementById('error');
       el.classList.remove('hidden');
       el.innerHTML =
-        '<div>' +
-        msg +
-        '</div>' +
+        '<div>' + msg + '</div>' +
         '<button onclick="location.reload()" ' +
         'style="background:#f0b90b;color:#000;border:none;padding:10px 20px;' +
         'border-radius:8px;cursor:pointer;margin-top:16px">إعادة المحاولة</button>';
     }
 
     function showMain(verified) {
-      clearTimeout(failsafeTimer);
+      disarmFailsafe();
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('error').classList.add('hidden');
       document.getElementById('main').classList.remove('hidden');
@@ -226,10 +241,13 @@
       document.getElementById('uid').textContent = verified.uid
         ? 'UID: ' + verified.uid.slice(0, 12) + '...'
         : '';
-      document.getElementById('yer-balance').textContent = verified.yerBalance || '0';
+      document.getElementById('yer-balance').textContent =
+        verified.yerBalance || '0';
     }
 
     async function bootstrap() {
+      armFailsafe();
+
       try {
         if (typeof Pi === 'undefined') {
           throw new Error(
@@ -244,9 +262,12 @@
           onIncompletePaymentFound
         );
 
+        if (!auth || !auth.accessToken) {
+          throw new Error('لم يتم استلام accessToken من Pi.');
+        }
+
         currentAccessToken = auth.accessToken;
 
-        // Drain incomplete payments queued during authenticate
         while (pendingIncomplete.length) {
           const p = pendingIncomplete.shift();
           await processIncompletePayment(p, currentAccessToken);
@@ -259,7 +280,8 @@
       } catch (err) {
         console.error('[GAV] bootstrap error:', err);
         showError(
-          err.message || 'حدث خطأ. تأكد من فتح التطبيق داخل Pi Browser.'
+          (err && err.message) ||
+            'حدث خطأ. تأكد من فتح التطبيق داخل Pi Browser.'
         );
       }
     }
@@ -280,21 +302,32 @@
       window.location.reload();
     }
 
-    // Expose logout globally for the inline onclick handler
     window.logout = logout;
 
-    document.getElementById('btn-create-offer')?.addEventListener('click', () => {
-      navigate('create-offer.html');
-    });
-    document.getElementById('btn-festivals')?.addEventListener('click', () => {
-      navigate('festivals.html');
-    });
-    document.getElementById('btn-vote')?.addEventListener('click', () => {
-      navigate('voting.html');
-    });
+    const btnCreate = document.getElementById('btn-create-offer');
+    if (btnCreate) {
+      btnCreate.addEventListener('click', function () {
+        navigate('create-offer.html');
+      });
+    }
 
-    document.querySelectorAll('.footer-nav span').forEach((el, idx) => {
-      el.addEventListener('click', () => {
+    const btnFestivals = document.getElementById('btn-festivals');
+    if (btnFestivals) {
+      btnFestivals.addEventListener('click', function () {
+        navigate('festivals.html');
+      });
+    }
+
+    const btnVote = document.getElementById('btn-vote');
+    if (btnVote) {
+      btnVote.addEventListener('click', function () {
+        navigate('voting.html');
+      });
+    }
+
+    const footerSpans = document.querySelectorAll('.footer-nav span');
+    footerSpans.forEach(function (el, idx) {
+      el.addEventListener('click', function () {
         const pages = ['index.html', 'profile.html', 'map.html', 'wallet.html'];
         if (pages[idx]) navigate(pages[idx]);
       });
