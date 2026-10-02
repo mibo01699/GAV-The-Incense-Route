@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * GAV Smoke Test
+ * GAV Smoke Test — ESM version
  * Verifies that critical files exist and are non-empty.
- * Runs in CI and locally via: npm test
  */
 
-'use strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const fs = require('fs');
-const path = require('path');
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 
 const REQUIRED_FILES = [
@@ -21,14 +21,13 @@ const REQUIRED_FILES = [
   'api/auth/verify.js',
   'api/payment/approve.js',
   'api/payment/complete.js',
+  'api/payment/incomplete.js',
   'api/offers/create.js',
   'vercel.json',
   'package.json',
 ];
 
-const OPTIONAL_FILES = [
-  'api/_lib/validators.js',
-];
+const OPTIONAL_FILES = ['api/_lib/validators.js'];
 
 let passed = 0;
 let failed = 0;
@@ -63,7 +62,6 @@ function checkFile(relPath, required) {
 }
 
 console.log('=== GAV Smoke Test ===\n');
-
 console.log('Required files:');
 REQUIRED_FILES.forEach((f) => checkFile(f, true));
 
@@ -74,7 +72,4 @@ if (OPTIONAL_FILES.length > 0) {
 
 console.log(`\n=== Result: ${passed} passed, ${failed} failed ===`);
 
-if (failed > 0) {
-  process.exit(1);
-}
-process.exit(0);
+process.exit(failed > 0 ? 1 : 0);
